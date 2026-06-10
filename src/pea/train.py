@@ -1,0 +1,148 @@
+"""Train a G1 walking policy with brax PPO.
+
+The same script produces baseline and spring-active runs — the spring is
+selected by the YAML config, never hardcoded here (CLAUDE.md design rule).
+Runs on Colab GPU (real training) and local CPU (--smoke pipeline test).
+"""
+
+from __future__ import annotations
+
+import argparse
+import functools
+import json
+import pathlib
+import time
+
+# Tiny-but-real PPO settings for the CPU pipeline test. Network architecture
+# is deliberately NOT changed: policy.load_policy rebuilds nets from the
+# env's recommended config, so smoke checkpoints must reload with it too.
+SMOKE_PARAMS = dict(
+    num_timesteps=30_000,
+    num_envs=32,
+    num_eval_envs=32,
+    batch_size=32,
+    num_minibatches=4,
+    unroll_length=8,
+    num_updates_per_batch=2,
+    episode_length=200,
+    num_evals=3,
+)
+
+
+def latest_checkpoint(path: pathlib.Path) -> pathlib.Path:
+    """Resolve a run dir / checkpoints dir to its newest step directory."""
+    if (path / "checkpoints").is_dir():
+        path = path / "checkpoints"
+    steps = [p for p in path.glob("*") if p.is_dir() and p.name.isdigit()]
+    if not steps:
+        raise FileNotFoundError(f"no checkpoints under {path}")
+    return max(steps, key=lambda p: int(p.name))
+
+
+def main() -> None:
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--config", required=True, help="YAML run config")
+    p.add_argument(
+        "--output_dir",
+        default=None,
+        help="runs root (default: $PEA_RUNS_DIR / Drive / ./outputs)",
+    )
+    p.add_argument("--suffix", default="", help="run-folder name suffix")
+    p.add_argument(
+        "--smoke",
+        action="store_true",
+        help="tiny CPU run to validate the full pipeline before Colab",
+    )
+    p.add_argument(
+        "--restore",
+        default=None,
+        help="run dir (or checkpoints dir) to resume from",
+    )
+    args = p.parse_args()
+
+    import jax
+    from brax.training.agents.ppo import train as ppo
+    from mujoco_playground import registry, wrapper
+
+    from pea import config as cfg_lib
+    from pea import policy as policy_lib
+    from pea.env import make_env
+
+    cfg = cfg_lib.load_config(args.config)
+    suffix = "smoke" if args.smoke else args.suffix
+    run_dir = cfg_lib.new_run_dir(cfg, root=args.output_dir, suffix=suffix)
+    ckpt_dir = (run_dir / "checkpoints").resolve()
+    print(f"[pea-train] run dir: {run_dir}")
+    print(f"[pea-train] jax backend: {jax.default_backend()}")
+
+    ppo_params = policy_lib.ppo_params_for(cfg)
+    training_params = dict(ppo_params)
+    training_params.pop("network_factory", None)
+    if cfg.num_timesteps is not None:
+        training_params["num_timesteps"] = cfg.num_timesteps
+    if "network_factory" in cfg.ppo:
+        raise ValueError(
+            "ppo overrides must not change network architecture "
+            "(breaks policy reload — see pea/policy.py)"
+        )
+    training_params.update(cfg.ppo)
+    if args.smoke:
+        training_params.update(SMOKE_PARAMS)
+    if cfg.domain_randomization and not args.smoke:
+        training_params["randomization_fn"] = registry.get_domain_randomizer(
+            cfg.env_name
+        )
+
+    restore = (
+        str(latest_checkpoint(pathlib.Path(args.restore).resolve()))
+        if args.restore
+        else None
+    )
+    if restore:
+        print(f"[pea-train] resuming from {restore}")
+
+    num_timesteps = training_params["num_timesteps"]
+    t0 = time.monotonic()
+    last = {"t": t0, "steps": 0}
+
+    def progress(num_steps: int, metrics: dict) -> None:
+        now = time.monotonic()
+        row = {"num_steps": int(num_steps), "wall_time_s": now - t0}
+        row.update({k: float(v) for k, v in metrics.items()})
+        with open(run_dir / "metrics.jsonl", "a") as f:
+            f.write(json.dumps(row) + "\n")
+        reward = metrics.get("eval/episode_reward", float("nan"))
+        dsteps, dt = num_steps - last["steps"], now - last["t"]
+        if dsteps > 0 and dt > 0:
+            sps = dsteps / dt
+            eta_min = (num_timesteps - num_steps) / sps / 60
+            print(
+                f"step {num_steps:>12,}  reward {reward:8.3f}  "
+                f"{sps:,.0f} env-steps/s  ETA {eta_min:.0f} min"
+            )
+        else:
+            print(f"step {num_steps:>12,}  reward {reward:8.3f}  (JIT compiling)")
+        last["t"], last["steps"] = now, num_steps
+
+    train_fn = functools.partial(
+        ppo.train,
+        **training_params,
+        network_factory=policy_lib.network_factory_for(cfg),
+        seed=cfg.seed,
+        save_checkpoint_path=str(ckpt_dir),
+        restore_checkpoint_path=restore,
+        wrap_env_fn=wrapper.wrap_for_brax_training,
+    )
+    _, params, _ = train_fn(
+        environment=make_env(cfg),
+        eval_env=make_env(cfg),
+        progress_fn=progress,
+    )
+
+    policy_lib.save_params(run_dir / "policy_params", params)
+    print(f"[pea-train] done in {(time.monotonic() - t0) / 60:.1f} min")
+    print(f"[pea-train] policy saved to {run_dir / 'policy_params'}")
+
+
+if __name__ == "__main__":
+    main()

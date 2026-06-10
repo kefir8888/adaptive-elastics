@@ -1,0 +1,14 @@
+# Nonlinear (hardening) parallel knee spring:
+#   tau = -k * d - k3 * d^3,  d = theta - theta0
+# Soft near theta0 (less fighting the motor in swing), stiff at deep flexion
+# (more offload in stance). NOT USED until Milestone 2; placeholders below.
+name: spring_nonlinear
+env_name: G1JoystickFlatTerrain
+seed: 1
+domain_randomization: true
+spring:
+  kind: nonlinear
+  k: 5.0       # N*m/rad — placeholder
+  theta0: 0.8  # rad — placeholder
+  k3: 20.0     # N*m/rad^3 — placeholder
+ppo: {}

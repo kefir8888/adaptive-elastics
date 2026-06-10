@@ -1,0 +1,34 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pea"
+version = "0.1.0"
+description = "Parallel-elastic knee efficiency study on the Unitree G1 (MuJoCo end to end)"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+# playground pins the jax/brax/mujoco stack; exact resolved versions live in
+# uv.lock (local) and must match what Colab installs from this same file.
+dependencies = [
+    # Exact pins: Colab installs from this same file, so the GPU trainer and
+    # the local CPU stack stay on identical physics/network code.
+    "playground==0.2.0",
+    "mujoco==3.9.0",
+    "brax==0.14.2",
+    # brax 0.14.2 (latest) still calls jax.device_put_replicated, removed in
+    # jax 0.10 — keep jax on 0.9.x until brax catches up.
+    "jax>=0.9,<0.10",
+    "numpy",
+    "pyyaml",
+    "matplotlib",
+    "mediapy",
+]
+
+[project.scripts]
+pea-train = "pea.train:main"
+pea-rollout = "pea.rollout:main"
+pea-analyze = "pea.analyze:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pea"]

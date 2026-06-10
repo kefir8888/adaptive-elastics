@@ -1,0 +1,11 @@
+# run outputs live on Drive or in outputs/, never in git
+outputs/
+logs/
+
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.ipynb_checkpoints/
+.DS_Store
+*.mp4

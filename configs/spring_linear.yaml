@@ -1,0 +1,12 @@
+# Linear parallel knee spring: tau = -k * (theta - theta0).
+# NOT USED until Milestone 2 (in-sim injection). Parameter values below are
+# placeholders; fit them to the baseline knee work loop (analyze.py) first.
+name: spring_linear
+env_name: G1JoystickFlatTerrain
+seed: 1
+domain_randomization: true
+spring:
+  kind: linear
+  k: 10.0      # N*m/rad — placeholder, fit to baseline work loop
+  theta0: 0.8  # rad — placeholder, near mid-stance knee flexion
+ppo: {}

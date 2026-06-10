@@ -1,0 +1,91 @@
+"""Run configuration.
+
+One YAML config fully describes a run (baseline or spring-active); the same
+train/rollout/analyze code path consumes either. The resolved config is copied
+into every run folder for provenance.
+"""
+
+from __future__ import annotations
+
+import dataclasses
+import datetime
+import os
+import pathlib
+
+import yaml
+
+
+@dataclasses.dataclass(frozen=True)
+class SpringConfig:
+    """Parallel knee spring. kind='none' disables it (baseline)."""
+
+    kind: str = "none"  # "none" | "linear" | "nonlinear"
+    k: float = 0.0      # stiffness, N*m/rad
+    theta0: float = 0.0  # equilibrium knee angle, rad
+    k3: float = 0.0     # cubic stiffness term (nonlinear only), N*m/rad^3
+
+
+@dataclasses.dataclass(frozen=True)
+class RunConfig:
+    name: str
+    env_name: str = "G1JoystickFlatTerrain"
+    # MJX implementation. Playground 0.2.0 defaults to 'warp', which is broken
+    # on Mac (no CUDA); 'jax' runs on both Mac CPU and Colab GPU.
+    impl: str = "jax"
+    seed: int = 1
+    # None -> use MuJoCo Playground's recommended value for the env.
+    num_timesteps: int | None = None
+    domain_randomization: bool = True
+    spring: SpringConfig = dataclasses.field(default_factory=SpringConfig)
+    # Overrides merged onto Playground's recommended brax PPO params.
+    ppo: dict = dataclasses.field(default_factory=dict)
+
+
+def load_config(path: str | pathlib.Path) -> RunConfig:
+    with open(path) as f:
+        raw = yaml.safe_load(f)
+    spring = SpringConfig(**(raw.pop("spring", None) or {}))
+    return RunConfig(spring=spring, **raw)
+
+
+def save_config(cfg: RunConfig, path: str | pathlib.Path) -> None:
+    with open(path, "w") as f:
+        yaml.safe_dump(dataclasses.asdict(cfg), f, sort_keys=False)
+
+
+def resolve_runs_dir() -> pathlib.Path:
+    """Where run folders live, by priority:
+
+    1. $PEA_RUNS_DIR
+    2. Colab: /content/drive/MyDrive/pea_runs (requires Drive mounted)
+    3. Mac with Google Drive for Desktop: <My Drive>/pea_runs
+    4. ./outputs (local fallback, gitignored)
+    """
+    if env := os.environ.get("PEA_RUNS_DIR"):
+        return pathlib.Path(env)
+    colab_drive = pathlib.Path("/content/drive/MyDrive")
+    if colab_drive.is_dir():
+        return colab_drive / "pea_runs"
+    for mount in pathlib.Path.home().glob(
+        "Library/CloudStorage/GoogleDrive-*/My Drive"
+    ):
+        return mount / "pea_runs"
+    return pathlib.Path("outputs")
+
+
+def new_run_dir(
+    cfg: RunConfig,
+    root: str | pathlib.Path | None = None,
+    suffix: str = "",
+) -> pathlib.Path:
+    root = pathlib.Path(root) if root else resolve_runs_dir()
+    date = datetime.date.today().isoformat()
+    name = f"{date}_{cfg.name}" + (f"_{suffix}" if suffix else "")
+    run_dir = root / name
+    n = 1
+    while run_dir.exists():
+        n += 1
+        run_dir = root / f"{name}_{n}"
+    run_dir.mkdir(parents=True)
+    save_config(cfg, run_dir / "config.yaml")
+    return run_dir

@@ -1,0 +1,12 @@
+# Baseline: G1 flat-ground walking, NO spring. The control group every
+# spring run is compared against. Train on Colab:
+#   pea-train --config configs/baseline.yaml
+name: baseline
+env_name: G1JoystickFlatTerrain
+seed: 1
+domain_randomization: true
+spring:
+  kind: none
+# Overrides onto MuJoCo Playground's recommended brax PPO params for this env.
+# Must not touch network architecture (see pea/policy.py).
+ppo: {}
