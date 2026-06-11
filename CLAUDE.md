@@ -40,8 +40,12 @@ sessions and start fresh ones freely (a new session reloads this file automatica
 
 ## Tech stack
 - **Simulator: MuJoCo, end to end.** MuJoCo Playground (ships a Unitree G1 flat-walk env)
-  + MJX for GPU training; plain CPU MuJoCo for rollout and analysis.
-- **Training: Google Colab (T4)** to start; rent a cloud NVIDIA GPU for iteration/sweeps.
+  + MJX for GPU training; the same MJX env on CPU JAX for local rollout/analysis.
+- **Training: rented immers.cloud H100 PCIe** (~342 ₽/hr, per-second billing, SSH —
+  Claude drives it end to end: bootstrap via `scripts/gpu_box_setup.sh`, train, rsync
+  results into the Drive folder, then DELETE the server, not stop). Measured: ~47k
+  env-steps/s with DR → ~70 min per 200M-step run. Colab T4 notebook remains as free
+  fallback (~9k steps/s, ~7 h, checkpoint-resume across disconnects).
 - **Analysis/inference: local MacBook Pro**, CPU MuJoCo + **CPU JAX** (only GPU/Metal JAX
   is dead; CPU JAX runs fine on Mac).
 - **Language: Python.**
@@ -72,6 +76,18 @@ Edit in VS Code → `git push` to GitHub → Colab `pip install`s the repo + run
 "Google Drive for desktop" mirrors it to the Mac → `analyze.py` reads the synced folder.
 
 ## Constraints & gotchas — what to AVOID
+- **Always `impl: jax`** (a RunConfig field): Playground 0.2.0 defaults the env to
+  MuJoCo Warp, which is broken on Mac and was never validated for this project.
+- **jax pinned `<0.10`**: brax 0.14.2 (latest) calls `jax.device_put_replicated`,
+  removed in jax 0.10. Revisit when brax releases.
+- **On the Mac, prefix every venv command with `env -u PYTHONPATH`** — the shell
+  profile sources a ROS 2 workspace whose PYTHONPATH shadows venv numpy/jax.
+- **Drive mount is locale-named** («Мой диск», not "My Drive") — `config.py`
+  handles it; don't hardcode the English name anywhere.
+- **GPU box over VPN**: SSH banner-exchange timeouts = flaky VPN exit; bypass the
+  box IP (`route add -host <ip> <gateway>`) or switch VPN location. Always launch
+  remote training detached (`nohup … &`) so it survives drops; monitor
+  `metrics.jsonl` (per-eval append), not stdout (block-buffered under nohup).
 - **NO Isaac Sim / Isaac Lab** — they need an NVIDIA RTX GPU + CUDA; dev machine is a
   MacBook Pro (no CUDA). This is the reason we're MuJoCo-only.
 - **Don't rely on jax-metal / GPU MJX on the Mac** — jax-metal is abandoned. CPU only locally.
