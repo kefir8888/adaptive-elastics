@@ -24,7 +24,8 @@ def main() -> None:
     tr = np.load(run_dir / "trajectory.npz")
     t = tr["time"]
     dt = float(tr["dt"])
-    dist = tr["qpos"][-1, 0] - tr["qpos"][0, 0]
+    # planar displacement — initial heading is randomized at reset
+    dist = float(np.linalg.norm(tr["qpos"][-1, :2] - tr["qpos"][0, :2]))
     print(f"duration {t[-1]:.1f} s   distance {dist:.2f} m   "
           f"mean speed {dist / max(t[-1], 1e-9):.2f} m/s")
 

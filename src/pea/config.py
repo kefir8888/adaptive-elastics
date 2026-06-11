@@ -19,10 +19,11 @@ import yaml
 class SpringConfig:
     """Parallel knee spring. kind='none' disables it (baseline)."""
 
-    kind: str = "none"  # "none" | "linear" | "nonlinear"
+    kind: str = "none"  # "none" | "constant" | "linear" | "nonlinear"
     k: float = 0.0      # stiffness, N*m/rad
     theta0: float = 0.0  # equilibrium knee angle, rad
     k3: float = 0.0     # cubic stiffness term (nonlinear only), N*m/rad^3
+    tau0: float = 0.0   # constant preload torque, N*m (constant only)
 
 
 @dataclasses.dataclass(frozen=True)

@@ -1,0 +1,13 @@
+# Constant-torque (preloaded) parallel knee element: tau = tau0.
+# Fitted to the 2026-06-11 H100 baseline knee work loop: the k>=0-constrained
+# least-squares spring degenerates to k=0 with ~-12 N*m offset, worth
+# -41%/-36% (L/R) knee copper loss as the POST-HOC optimistic bound.
+# In-loop retraining (Milestone 4) decides what is actually realizable.
+name: spring_constant
+env_name: G1JoystickFlatTerrain
+seed: 1
+domain_randomization: true
+spring:
+  kind: constant
+  tau0: -12.0  # N*m extension assist, from baseline work-loop fit
+ppo: {}

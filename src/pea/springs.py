@@ -22,23 +22,31 @@ from pea.config import SpringConfig
 
 @dataclasses.dataclass(frozen=True)
 class SpringSpec:
-    kind: str  # "linear" | "nonlinear"
-    k: float
-    theta0: float
+    kind: str  # "constant" | "linear" | "nonlinear"
+    k: float = 0.0
+    theta0: float = 0.0
     k3: float = 0.0
+    tau0: float = 0.0  # constant preload torque, N*m (kind="constant")
 
 
 def from_config(cfg: SpringConfig) -> SpringSpec | None:
     """None means no spring (baseline run)."""
     if cfg.kind == "none":
         return None
-    if cfg.kind not in ("linear", "nonlinear"):
+    if cfg.kind not in ("constant", "linear", "nonlinear"):
         raise ValueError(f"unknown spring kind: {cfg.kind!r}")
-    return SpringSpec(kind=cfg.kind, k=cfg.k, theta0=cfg.theta0, k3=cfg.k3)
+    return SpringSpec(
+        kind=cfg.kind, k=cfg.k, theta0=cfg.theta0, k3=cfg.k3, tau0=cfg.tau0
+    )
 
 
 def tau_spring(theta, spec: SpringSpec):
     """Spring torque at knee angle theta (rad). Elementwise; numpy or jax."""
+    if spec.kind == "constant":
+        # Preloaded / constant-torque element. Motivated by the baseline knee
+        # work loop: gravity-support torque in a flexed-knee gait is offset-
+        # dominated, and the k>=0-constrained optimum degenerates to k=0.
+        return spec.tau0 + 0.0 * theta  # broadcast to theta's shape
     d = theta - spec.theta0
     tau = -spec.k * d
     if spec.kind == "nonlinear":
