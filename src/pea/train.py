@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import functools
 import json
+import os
 import pathlib
 import time
 
@@ -56,9 +57,23 @@ def main() -> None:
     p.add_argument(
         "--restore",
         default=None,
-        help="run dir (or checkpoints dir) to resume from",
+        help="run dir (or checkpoints dir) to resume from (restores weights; "
+        "the step counter restarts — combine with --num_timesteps to train "
+        "only the remainder)",
+    )
+    p.add_argument(
+        "--num_timesteps",
+        type=int,
+        default=None,
+        help="override config/recommended step budget",
     )
     args = p.parse_args()
+
+    # Must be set before jax initializes (same flags Playground's trainer
+    # uses): triton gemm speeds up PPO on GPU; the default 0.75 memory
+    # fraction wastes 4 GB of a 16 GB T4.
+    os.environ.setdefault("XLA_FLAGS", "--xla_gpu_triton_gemm_any=true")
+    os.environ.setdefault("XLA_PYTHON_CLIENT_MEM_FRACTION", "0.9")
 
     import jax
     from brax.training.agents.ppo import train as ppo
@@ -88,6 +103,8 @@ def main() -> None:
     training_params.update(cfg.ppo)
     if args.smoke:
         training_params.update(SMOKE_PARAMS)
+    if args.num_timesteps is not None:
+        training_params["num_timesteps"] = args.num_timesteps
     if cfg.domain_randomization and not args.smoke:
         training_params["randomization_fn"] = registry.get_domain_randomizer(
             cfg.env_name
