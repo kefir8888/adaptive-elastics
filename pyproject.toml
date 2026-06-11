@@ -25,6 +25,10 @@ dependencies = [
     "mediapy",
 ]
 
+[project.optional-dependencies]
+# GPU boxes / Colab: swaps in CUDA jaxlib + plugins (uv sync --extra cuda)
+cuda = ["jax[cuda12]>=0.9,<0.10"]
+
 [project.scripts]
 pea-train = "pea.train:main"
 pea-rollout = "pea.rollout:main"
