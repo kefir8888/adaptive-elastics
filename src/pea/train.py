@@ -125,10 +125,14 @@ def main() -> None:
             eta_min = (num_timesteps - num_steps) / sps / 60
             print(
                 f"step {num_steps:>12,}  reward {reward:8.3f}  "
-                f"{sps:,.0f} env-steps/s  ETA {eta_min:.0f} min"
+                f"{sps:,.0f} env-steps/s  ETA {eta_min:.0f} min",
+                flush=True,  # stdout is block-buffered under nohup
             )
         else:
-            print(f"step {num_steps:>12,}  reward {reward:8.3f}  (JIT compiling)")
+            print(
+                f"step {num_steps:>12,}  reward {reward:8.3f}  (JIT compiling)",
+                flush=True,
+            )
         last["t"], last["steps"] = now, num_steps
 
     train_fn = functools.partial(

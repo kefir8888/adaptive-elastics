@@ -103,8 +103,10 @@ def main() -> None:
         knee_qpos_adr=np.array([v["qpos_adr"] for v in knees.values()]),
         knee_dof_adr=np.array([v["dof_adr"] for v in knees.values()]),
     )
-    dist = qpos[-1][0] - qpos[0][0]
-    print(f"[pea-rollout] walked {dist:.2f} m in {n * env.dt:.1f} s; saved {out}")
+    # Planar displacement — initial heading is randomized at reset, so
+    # world-frame x alone misreads a perfectly good forward walk.
+    dist = float(np.linalg.norm(qpos[-1][:2] - qpos[0][:2]))
+    print(f"[pea-rollout] walked {dist:.2f} m (planar) in {n * env.dt:.1f} s; saved {out}")
 
     if args.video:
         render_video(mj_model, qpos, env.dt, run_dir / "video.mp4")
