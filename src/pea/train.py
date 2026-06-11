@@ -59,10 +59,10 @@ def main() -> None:
     )
     args = p.parse_args()
 
-    # Must be set before jax initializes (same flags Playground's trainer
-    # uses): triton gemm speeds up PPO on GPU; the default 0.75 memory
-    # fraction wastes 4 GB of a 16 GB T4.
-    os.environ.setdefault("XLA_FLAGS", "--xla_gpu_triton_gemm_any=true")
+    # Must be set before jax initializes: the default 0.75 memory fraction
+    # wastes 4 GB of a 16 GB T4. (--xla_gpu_triton_gemm_any was tried here
+    # and removed: on driver-595/CUDA-13 boxes the triton autotuner fails
+    # every config with xtile DEVICE_TYPE_INVALID and compile takes forever.)
     os.environ.setdefault("XLA_PYTHON_CLIENT_MEM_FRACTION", "0.9")
 
     import jax
