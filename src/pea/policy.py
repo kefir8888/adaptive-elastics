@@ -42,6 +42,42 @@ def save_params(path: str | pathlib.Path, params) -> None:
     model.save_params(str(path), params)
 
 
+def latest_checkpoint(path: pathlib.Path) -> pathlib.Path:
+    """Resolve a run dir / checkpoints dir to its newest step directory."""
+    if (path / "checkpoints").is_dir():
+        path = path / "checkpoints"
+    steps = [p for p in path.glob("*") if p.is_dir() and p.name.isdigit()]
+    if not steps:
+        raise FileNotFoundError(f"no checkpoints under {path}")
+    return max(steps, key=lambda p: int(p.name))
+
+
+def load_policy_from_checkpoint(env, cfg: RunConfig, ckpt_dir, deterministic: bool = True):
+    """Inference fn from a mid-training orbax checkpoint (no policy_params).
+
+    brax's own checkpoint.load_policy chokes on configs whose kernel-init
+    names were saved as null (KERNEL_INITIALIZER[None] KeyError), so we load
+    only the params from orbax and rebuild the network exactly like
+    load_policy does — from Playground's recommended factory kwargs.
+    """
+    from brax.training.agents.ppo import checkpoint as ppo_checkpoint
+
+    ppo_params = ppo_params_for(cfg)
+    preprocess = (
+        running_statistics.normalize
+        if ppo_params.get("normalize_observations", True)
+        else types.identity_observation_preprocessor
+    )
+    nets = network_factory_for(cfg)(
+        env.observation_size,
+        env.action_size,
+        preprocess_observations_fn=preprocess,
+    )
+    make_policy = ppo_networks.make_inference_fn(nets)
+    params = ppo_checkpoint.load(str(ckpt_dir))
+    return make_policy(params, deterministic=deterministic)
+
+
 def load_policy(
     env,
     cfg: RunConfig,

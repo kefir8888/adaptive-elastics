@@ -44,10 +44,17 @@ def main() -> None:
     run_dir = pathlib.Path(args.run)
     cfg = cfg_lib.load_config(run_dir / "config.yaml")
     env = make_env(cfg)
-    policy = policy_lib.load_policy(
-        env, cfg, run_dir / "policy_params",
-        deterministic=not args.stochastic,
-    )
+    params_path = run_dir / "policy_params"
+    if params_path.exists():
+        policy = policy_lib.load_policy(
+            env, cfg, params_path, deterministic=not args.stochastic
+        )
+    else:
+        ckpt = policy_lib.latest_checkpoint(run_dir)
+        print(f"[pea-rollout] no policy_params; loading checkpoint {ckpt.name}")
+        policy = policy_lib.load_policy_from_checkpoint(
+            env, cfg, ckpt, deterministic=not args.stochastic
+        )
 
     jit_reset = jax.jit(env.reset)
     jit_step = jax.jit(env.step)

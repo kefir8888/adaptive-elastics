@@ -30,16 +30,6 @@ SMOKE_PARAMS = dict(
 )
 
 
-def latest_checkpoint(path: pathlib.Path) -> pathlib.Path:
-    """Resolve a run dir / checkpoints dir to its newest step directory."""
-    if (path / "checkpoints").is_dir():
-        path = path / "checkpoints"
-    steps = [p for p in path.glob("*") if p.is_dir() and p.name.isdigit()]
-    if not steps:
-        raise FileNotFoundError(f"no checkpoints under {path}")
-    return max(steps, key=lambda p: int(p.name))
-
-
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--config", required=True, help="YAML run config")
@@ -111,7 +101,7 @@ def main() -> None:
         )
 
     restore = (
-        str(latest_checkpoint(pathlib.Path(args.restore).resolve()))
+        str(policy_lib.latest_checkpoint(pathlib.Path(args.restore).resolve()))
         if args.restore
         else None
     )
