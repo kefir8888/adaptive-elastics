@@ -66,10 +66,18 @@ def resolve_runs_dir() -> pathlib.Path:
     colab_drive = pathlib.Path("/content/drive/MyDrive")
     if colab_drive.is_dir():
         return colab_drive / "pea_runs"
-    for mount in pathlib.Path.home().glob(
-        "Library/CloudStorage/GoogleDrive-*/My Drive"
-    ):
-        return mount / "pea_runs"
+    # Drive for Desktop localizes the folder name ("My Drive", "Мой диск", …);
+    # fall back to the only visible top-level dir in the account mount.
+    for account in pathlib.Path.home().glob("Library/CloudStorage/GoogleDrive-*"):
+        for name in ("My Drive", "Мой диск"):
+            if (account / name).is_dir():
+                return account / name / "pea_runs"
+        visible = [
+            d for d in account.iterdir()
+            if d.is_dir() and not d.name.startswith(".")
+        ]
+        if len(visible) == 1:
+            return visible[0] / "pea_runs"
     return pathlib.Path("outputs")
 
 
