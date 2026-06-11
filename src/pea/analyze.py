@@ -1,8 +1,13 @@
-"""Knee-focused gait analysis from a logged trajectory (Milestone 1 scope).
+"""Knee-focused gait analysis from a logged trajectory.
 
 Reads trajectory.npz only — no env or jax dependency. Plots knee angle, knee
 torque, and the torque-angle work loop (the plot a spring curve gets fitted
-to), and prints summary stats. Full electrical CoT comparison lands in M2/M3.
+to), and prints summary stats.
+
+--spring <config.yaml> runs the Milestone 3 POST-HOC analysis: subtract
+tau_spring(theta) from the recorded motor torque on the same trajectory and
+recompute electrical power per knee. Optimistic upper bound — assumes the
+gait does not change. The credible comparison is in-loop retraining (M4).
 """
 
 from __future__ import annotations
@@ -12,12 +17,55 @@ import pathlib
 
 import numpy as np
 
-from pea import energy
+from pea import energy, springs
+from pea.config import load_config
+
+TRANSIENT_S = 2.0  # settle time dropped from all stats
+
+
+def posthoc(tr, spring_cfg_path: str) -> None:
+    spec = springs.from_config(load_config(spring_cfg_path).spring)
+    if spec is None:
+        raise SystemExit("config has spring.kind=none — nothing to subtract")
+    dt = float(tr["dt"])
+    skip = int(TRANSIENT_S / dt)
+    kt, r = energy.G1_KNEE.kt, energy.G1_KNEE.r
+    print(f"\nPOST-HOC spring offload ({spec}) — optimistic bound, gait fixed:")
+    tot_base, tot_spring = 0.0, 0.0
+    for name, qa, da in zip(
+        tr["knee_names"], tr["knee_qpos_adr"], tr["knee_dof_adr"]
+    ):
+        theta = tr["qpos"][skip:, qa]
+        omega = tr["qvel"][skip:, da]
+        tau = tr["qfrc_actuator"][skip:, da]
+        tau_new = tau - springs.tau_spring(theta, spec)
+        e_base = energy.energy(energy.electrical_power(tau, omega, kt, r), dt)
+        e_new = energy.energy(energy.electrical_power(tau_new, omega, kt, r), dt)
+        cu_base = energy.energy(energy.copper_loss(tau, kt, r), dt)
+        cu_new = energy.energy(energy.copper_loss(tau_new, kt, r), dt)
+        tot_base += e_base
+        tot_spring += e_new
+        print(
+            f"  {name}: electrical {e_base:7.1f} -> {e_new:7.1f} J "
+            f"({100 * (e_new / e_base - 1):+5.1f}%)   "
+            f"copper {cu_base:6.1f} -> {cu_new:6.1f} J "
+            f"({100 * (cu_new / cu_base - 1):+5.1f}%)"
+        )
+    print(
+        f"  TOTAL knee electrical: {tot_base:.1f} -> {tot_spring:.1f} J "
+        f"({100 * (tot_spring / tot_base - 1):+.1f}%)   "
+        f"[Kt={kt}, R={r} PLACEHOLDER; no-regen]"
+    )
 
 
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--run", required=True, help="run folder with trajectory.npz")
+    p.add_argument(
+        "--spring",
+        default=None,
+        help="spring config YAML for post-hoc offload analysis (Milestone 3)",
+    )
     args = p.parse_args()
 
     run_dir = pathlib.Path(args.run)
@@ -60,6 +108,9 @@ def main() -> None:
     out = run_dir / "knee_gait.png"
     fig.savefig(out, dpi=120)
     print(f"saved {out}")
+
+    if args.spring:
+        posthoc(tr, args.spring)
 
 
 if __name__ == "__main__":
