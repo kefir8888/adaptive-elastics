@@ -26,10 +26,32 @@ happened, what's open/broken, and the single next step.
   energy accounting but no RL), STEPPR (parallel springs, no gait
   co-adaptation), Duke Humanoid (efficiency RL, no parallel knee element) —
   our RL-co-adaptation-on-a-commercial-humanoid combination appears unclaimed.
-- **Open / broken:** literature review still running (resumed, lightened);
-  full verified report + `docs/related_work.md` to be completed when it lands.
-  M4 retrain not yet run. Real G1 Kt/R still needed.
+- **Open / broken:** M4 retrain not yet run. Real G1 Kt/R still needed —
+  and the survey REFUTED the no-regen assumption (not supported by literature),
+  so it must be justified from G1 driver specs, not asserted.
 - **Next:** run the M4 spring arm on a fresh H100 box and compare best-vs-best.
+
+### Update (later 2026-06-12): literature survey landed + hip-pivot evidence
+- **Did:** Completed the deep-research survey (47 agents, 24/25 claims confirmed)
+  → full report in `docs/related_work.md`. Ran the E[τ|θ] decomposition on the
+  baseline trajectory for knee AND hip-pitch.
+- **Decided / found:** (a) **Novelty = integration, not new principle** —
+  unclaimed cell is parallel element + in-loop RL co-adaptation + commercial
+  humanoid + electrical accounting. Closest prior art: Bjelonic ETH RA-L 2023
+  (same τ² metric + RL co-design, but QUADRUPED knee) and the group's OWN
+  Belov/Osokin Skoltech 2024 (analytic, fixed PD, leg-stand — must cite/differ).
+  Venue: RA-L/ICRA/IROS/Humanoids; top journals need hardware + real Kt/R +
+  param co-optimization. (b) **Hip-pitch is the better PEA target than the
+  knee**, confirmed in our own data: buildable linear spring captures ~51–60%
+  of mean-square hip torque (near the 0.53–0.64 ideal ceiling), vs the knee's
+  collapse to a constant at 36–41%. const-preload explains ~0% at the hip (AC
+  joint) vs ~40% at the knee (DC joint). STEPPR's biped wins were also at the
+  hip — consistent.
+- **Open:** stance/swing knee-θ AND hip-θ ranges OVERLAP (both joints), so an
+  angle-keyed dead zone can't gate either; hip's AC/symmetric nature may let an
+  always-on spring help both phases without a clutch (needs in-loop test).
+- **Next (proposed, awaiting go):** pivot M4 to hip-pitch — add E[τ|θ] decomp to
+  `analyze.py`, write `configs/spring_hip_linear.yaml`, retrain on H100.
 
 ---
 
