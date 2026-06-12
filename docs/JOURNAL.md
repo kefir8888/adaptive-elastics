@@ -31,7 +31,26 @@ happened, what's open/broken, and the single next step.
   so it must be justified from G1 driver specs, not asserted.
 - **Next:** run the M4 spring arm on a fresh H100 box and compare best-vs-best.
 
-### Update (later 2026-06-12): literature survey landed + hip-pivot evidence
+### Update (2026-06-12, eve): spring-mechanism derived but NOT novel; DecARt; Direction 1 chosen
+- **Did:** Derived the "two offset half-parabolic springs → tunable linear spring"
+  mechanism (`docs/mechanism.md`): K_eff=2k(p₂−p₁), θ₀=(p₁+p₂)/2, exact. Ran a
+  cost-disciplined novelty workflow (21 agents, Haiku search/fetch + Fable verify).
+- **Found:** **Mechanism is NOT novel** — exact scoop by Hurst et al. AMASC 2004
+  (F_eff=4K·x₃·(x₂−x₁), their pretension x₃≡(p₂−p₁)/2), Migliore 2005, PMC10451064
+  2024. Verdict: adopt & cite, do not claim. Novelty stays on the application
+  stack (parallel packaging + RL co-adaptation + electrical CoT). Mechanism-level
+  contribution would have to be *earned* empirically (onset-block vs pretension
+  advantage, or non-overlapping dead-zone regime — but our overlap data argues
+  against the latter). **DecARt Leg (MIPT, arXiv:2511.10021)** confirmed as the
+  Direction-2 decoupled-leg platform (6 servos, proximal; flags springs as future
+  work).
+- **Decided:** Pursue **Direction 1 first** (hip-pitch tunable spring, sweep over
+  speed × incline × load, adapt (K_eff,θ₀), measure electrical CoT reduction);
+  Direction 2 (DecARt-style decoupled leg) is the morphological follow-up.
+- **Next:** build the Direction-1 experiment setup — config grid + analysis to
+  compare energy across conditions — before spending GPU time.
+
+### Update (2026-06-12): literature survey landed + hip-pivot evidence
 - **Did:** Completed the deep-research survey (47 agents, 24/25 claims confirmed)
   → full report in `docs/related_work.md`. Ran the E[τ|θ] decomposition on the
   baseline trajectory for knee AND hip-pitch.

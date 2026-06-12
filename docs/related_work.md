@@ -137,6 +137,16 @@ post-hoc-vs-in-loop contrast. No surveyed work occupies it.
 
 ---
 
+## 4a · Spring-mechanism novelty — NOT novel (verified separately)
+
+The proposed "two offset half-parabolic springs → tunable linear spring"
+mechanism is an **exact known result**, scooped by **Hurst et al. 2004 (AMASC,
+CMU)** — `F_eff = 4K·x₃·(x₂−x₁)`, with their pretension `x₃ ≡ (p₂−p₁)/2` — and
+**Migliore et al. 2005**, and restated in **PMC10451064 (2024)**. Verdict:
+**adopt and cite it, do not claim it.** Full derivation, citations, and the two
+ways a mechanism-level contribution could still be *earned* empirically are in
+[`mechanism.md`](mechanism.md). Novelty stays on the application stack (§1).
+
 ## 5 · Sources
 
 - Bjelonic et al., *Learning-based Design and Control of Parallel-Elastic
@@ -157,6 +167,16 @@ post-hoc-vs-in-loop contrast. No surveyed work occupies it.
   frontiersin.org/articles/10.3389/frobt.2018.00129
 - Geeroms et al., lockable parallel-elastic knee prosthesis, Bioinspir. Biomim.
   2017 — DOI 10.1088/1748-3190/aa575c
+- **Hurst, Chestnutt & Rizzi, AMASC**, CMU-RI-TR-04-24, 2004 — exact scoop of the
+  dual-quadratic→linear tunable-spring mechanism (MABEL/ATRIAS lineage)
+- **Migliore, Brown & DeWeerth**, "Biologically inspired joint stiffness control,"
+  ICRA 2005 — canonical antagonistic-quadratic VSA
+- "Conceptual… antagonistic VSA based on equivalent quadratic torsion spring,"
+  2024 — PMC10451064 (same identity, torsional form)
+- Vanderborght et al., "Variable impedance actuators: A review," RAS 2013
+- **DecARt Leg** (MIPT), arXiv:2511.10021, Nov 2025 — decoupled-actuation humanoid
+  leg (6 servos, all proximal; pitch/length decoupled); flags parallel/serial
+  springs as future work [Direction 2]
 
 **Refuted (did not survive verification):** "high gear ratio ⇒ trivial
 regeneration, supporting no-regen" — so the no-regen assumption needs
