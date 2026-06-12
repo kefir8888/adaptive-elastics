@@ -8,6 +8,31 @@ happened, what's open/broken, and the single next step.
 
 ---
 
+## 2026-06-12 — Milestone 4 unblocked; literature review; detailed results doc
+- **Did:** Implemented `SpringWrapper` in `env.py` (injects `τ_spring(θ)` at knee
+  DoFs via `qfrc_applied`, beside the motors so `qfrc_actuator` stays "motor
+  torque"); verified under jit and via full CPU smoke-train. Ran the Milestone 3
+  post-hoc analysis end to end. Wrote `docs/RESULTS.md` (detailed numbers/methods
+  across M1–M4). Launched the deep-research prior-art/novelty survey.
+- **Decided:** Spring enters through `qfrc_applied`, not the actuator path —
+  keeps the energy model honest. Lightened the literature workflow's adversarial
+  verification from 3-vote to 1-vote after it twice stalled on the API usage
+  limit (75 verify agents → 25); accepting weaker robustness, will spot-check the
+  near-scoop papers by hand.
+- **Result / numbers:** M3 post-hoc (constant −12 N·m, fixed gait, placeholder
+  Kt/R, no-regen): knee copper loss −41.5 %/−35.8 % (L/R), total knee electrical
+  −16.1 %. See `docs/RESULTS.md`. Lit-review preliminary (UNVERIFIED, from the
+  failed run's logs): closest prior art is a Skoltech PEA-knee paper (same
+  energy accounting but no RL), STEPPR (parallel springs, no gait
+  co-adaptation), Duke Humanoid (efficiency RL, no parallel knee element) —
+  our RL-co-adaptation-on-a-commercial-humanoid combination appears unclaimed.
+- **Open / broken:** literature review still running (resumed, lightened);
+  full verified report + `docs/related_work.md` to be completed when it lands.
+  M4 retrain not yet run. Real G1 Kt/R still needed.
+- **Next:** run the M4 spring arm on a fresh H100 box and compare best-vs-best.
+
+---
+
 ## 2026-06-11 — Milestones 1–3 in two days: baseline walks, spring hypothesis inverted
 - **Did:** Full scaffold (2026-06-10) + every connection: GitHub (kefir8888/adaptive-elastics),
   Colab notebook, Google Drive sync, immers.cloud H100 box driven end-to-end over SSH.
