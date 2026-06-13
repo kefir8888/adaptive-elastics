@@ -131,6 +131,32 @@ retraining (Milestone 4).**
 
 ---
 
+## Motor constants estimated (2026-06-13) — and a sobering implication
+
+Estimated for the 7520-22.5 actuator (hip-pitch and knee share it), joint-side,
+from a deep web search: **Kt ≈ 2.3 N·m/A (2.0–2.7), R ≈ 0.013 Ω (0.009–0.025)**;
+gear-invariant **R/Kt² ≈ 0.0025** is the load-bearing quantity. Estimates only
+(no datasheet/hardware) — report cost of transport as a band, lead with the
+Kt/R-independent ohmic-% reduction. Now in `energy.py` (replacing placeholders).
+
+**Implication (important).** With realistic constants, ohmic loss is only **~4 %
+of total electrical energy** (the placeholders made it ~48 %). The 22.5:1 gearing
+lets the motor make 120 N·m at ~50 A, so I²R heating is small. So the original
+"copper loss ∝ τ², cut quadratically" motivation is true but applies to a small
+slice of the budget for a geared humanoid.
+
+Offline (post-hoc) hip-pitch linear spring on the baseline, realistic constants:
+**ohmic −51…−59 % (large, small base); total electrical at the hip joint −7…−14 %**.
+That larger total reduction comes from the spring offloading *positive mechanical
+work* under no-regeneration, not from ohmic. Two consequences:
+1. The headline total-electrical CoT reduction will be **more modest than the
+   −16 % the placeholder implied**, concentrated at the hip, smaller whole-body.
+2. It is **sensitive to the no-regeneration assumption** (a "replace costly
+   positive motor work" effect) — physically right for the geared G1, but also
+   the assumption most favourable to the spring; say so.
+Framing: lead with the ohmic-% reduction (large, Kt/R-independent); report the
+total-electrical CoT reduction honestly as modest and assumption-sensitive.
+
 ## Open items / risks
 
 1. **Real G1 knee Kt, R** — needed before any absolute electrical % is

@@ -31,8 +31,19 @@ class MotorConstants:
     r: float   # phase/winding resistance, Ohm
 
 
-# PLACEHOLDER values — see module docstring. TODO(M3): confirm for G1.
-G1_KNEE = MotorConstants(kt=1.0, r=0.05)
+# ESTIMATED constants for the G1 7520-22.5 actuator (hip-pitch AND knee share
+# this motor), JOINT-SIDE, from a deep web search (2026-06-13). Two independent
+# routes (gear-scaled Go2 GO-M8010-6 proxy; peak-torque/implied-current) agree:
+#   Kt ~ 2.3 N*m/A (range 2.0-2.7);  R ~ 0.013 Ohm (range 0.009-0.025).
+# The load-bearing, GEAR-INVARIANT quantity is R/Kt^2 ~ 0.0025 Ohm/(N*m/A)^2
+# (band 0.0020-0.0032): ohmic loss = (tau/Kt)^2 * R depends only on this ratio,
+# and only its identical reuse across the spring/no-spring conditions affects the
+# headline % reductions. ESTIMATES (no datasheet/hardware) — do NOT publish
+# absolute watts on these; report cost of transport as a band, and lead with the
+# Kt/R-independent ohmic-% reduction. Other joints differ (hip-yaw 7520-14.3
+# Kt~1.5; ankle 5020 Kt~1.4-1.7); using the 7520-22.5 value for all actuated
+# DoFs is an estimate-grade simplification, fine for the relative comparison.
+G1_KNEE = MotorConstants(kt=2.3, r=0.013)
 
 
 def ohmic_power(tau, kt: float, r: float):
