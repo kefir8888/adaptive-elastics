@@ -8,6 +8,33 @@ happened, what's open/broken, and the single next step.
 
 ---
 
+## 2026-06-13 — Gate fully prepared; reward = total electrical; ready for GPU
+- **Did:** Generalised `SpringWrapper` to any joint (`spring.joint`, now hip-pitch).
+  Replaced cubic "nonlinear" spring with **semiparabolic** (two one-sided
+  quadratic elements; overlap → exactly linear, verified to 1e-15; separated
+  onsets → zero-torque dead zone = full passive disengagement, a clutch the
+  preloaded VSAs of Hurst/Migliore cannot reach — see `mechanism.md`). Added
+  `ElectricalRewardWrapper` (total-electrical penalty in BOTH conditions),
+  `--energy-weight` CLI, `scripts/calib_sweep.sh`, whole-body CoT in `analyze.py`.
+  All CPU-smoke-tested.
+- **Decided:** (1) Spring target = **hip-pitch** (AC joint; buildable linear
+  spring captures ~55% of mean-square torque vs the knee's collapse). Gate spring
+  = linear, k=68 N·m/rad, θ0=-0.29 rad (offline hip fit). (2) Use the **linear**
+  spring first (it is exactly the realizable mechanism in-band). (3) Reward AND
+  headline metric = **TOTAL ELECTRICAL** (mechanical + ohmic, no regeneration) —
+  battery life depends on total power, not ohmic alone. Report all three:
+  ohmic loss, cost of transport, total power. Also report the Kt/R-independent
+  ohmic-% for comparability with Osokin/Belov 2024 and Bjelonic 2023 (both used
+  τ² only). (4) **No regeneration** (geared G1, walking). (5) Energy weight
+  placeholder -2.5e-4 (≈7-12% of the +1.0 tracking reward; raw electrical ~291 W).
+- **Open / broken:** Kt, R unknown (no hardware) → being ESTIMATED via deep web
+  search (workflow), reported as a band; the relative ohmic-% is Kt/R-independent
+  so this does not block the gate. Energy weight to be set by the calibration runs.
+- **Next:** provision GPU box(es); run the calibration (5 short no-spring runs,
+  `scripts/calib_sweep.sh`), pick the weight, then the gate: hip-linear spring vs
+  matched no-spring at that weight, compare ohmic/CoT/total power. See README
+  "Current state" and `docs/PLAN.md` Milestone 4.
+
 ## 2026-06-12 — Milestone 4 unblocked; literature review; detailed results doc
 - **Did:** Implemented `SpringWrapper` in `env.py` (injects `τ_spring(θ)` at knee
   DoFs via `qfrc_applied`, beside the motors so `qfrc_actuator` stays "motor

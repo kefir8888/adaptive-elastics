@@ -7,6 +7,35 @@ heat quadratically — if the gait can exploit it. MuJoCo end to end; metrics ar
 copper loss and cost of transport, not mechanical work. See `CLAUDE.md` for the
 full experiment design.
 
+## Current state (2026-06-13)
+
+Milestones 1–3 done (baseline trained, knee/hip logged, offline spring analysis).
+**Milestone 4 (in-loop comparison) is prepared and CPU-validated; it needs a GPU
+machine to run.** Full detail in `docs/PLAN.md`, `docs/RESULTS.md`, `docs/JOURNAL.md`
+(start here), `docs/mechanism.md`, `docs/related_work.md`.
+
+Key decisions: spring target = **hip-pitch**, linear spring `k=68 N·m/rad,
+θ0=-0.29 rad` (`configs/spring_hip_linear.yaml`); matched no-spring
+(`configs/baseline_gate.yaml`). Reward and headline metric = **total electrical
+power** (mechanical + ohmic, no regeneration); we also report the Kt/R-independent
+ohmic-loss percentage and the cost of transport. Energy-weight placeholder
+`-2.5e-4`, to be fixed by calibration. Kt/R are estimates (no hardware), reported
+as a band.
+
+### To run Milestone 4 on a GPU machine
+
+```sh
+# on the box (Ubuntu+CUDA): bootstrap, then
+curl -fsSL https://raw.githubusercontent.com/kefir8888/adaptive-elastics/main/scripts/gpu_box_setup.sh | bash
+# 1) calibration: 5 short no-spring runs at different energy weights
+nohup bash scripts/calib_sweep.sh > ~/calib.log 2>&1 &
+# 2) gate (after picking the weight W from calibration), spring vs no-spring:
+pea-train --config configs/spring_hip_linear.yaml --energy-weight=W --output_dir ~/runs
+pea-train --config configs/baseline_gate.yaml     --energy-weight=W --output_dir ~/runs
+# then rsync ~/runs into the Drive pea_runs folder and, locally:
+#   pea-rollout --run <run> ; pea-analyze --run <run>   (reports ohmic, CoT, total power)
+```
+
 ## Setup (local, macOS)
 
 ```sh
