@@ -19,11 +19,14 @@ import yaml
 class SpringConfig:
     """Parallel knee spring. kind='none' disables it (baseline)."""
 
-    kind: str = "none"  # "none" | "constant" | "linear" | "nonlinear"
-    k: float = 0.0      # stiffness, N*m/rad
-    theta0: float = 0.0  # equilibrium knee angle, rad
-    k3: float = 0.0     # cubic stiffness term (nonlinear only), N*m/rad^3
+    kind: str = "none"  # "none" | "constant" | "linear" | "semiparabolic"
+    joint: str = "knee"  # target joint, matched by substring: "knee" | "hip_pitch"
+    k: float = 0.0      # linear stiffness [N*m/rad], or per-element quadratic
+                        # stiffness [N*m/rad^2] when kind="semiparabolic"
+    theta0: float = 0.0  # equilibrium joint angle, rad (linear)
     tau0: float = 0.0   # constant preload torque, N*m (constant only)
+    p1: float = 0.0     # lower onset, rad (semiparabolic only)
+    p2: float = 0.0     # upper onset, rad (semiparabolic only)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -40,6 +43,10 @@ class RunConfig:
     spring: SpringConfig = dataclasses.field(default_factory=SpringConfig)
     # Overrides merged onto Playground's recommended brax PPO params.
     ppo: dict = dataclasses.field(default_factory=dict)
+    # Overrides merged onto the env's reward weights (reward_config.scales).
+    # The spring and no-spring conditions MUST share identical reward_scales for
+    # the in-loop comparison to be fair (the default G1 reward has energy=0).
+    reward_scales: dict = dataclasses.field(default_factory=dict)
 
 
 def load_config(path: str | pathlib.Path) -> RunConfig:

@@ -35,9 +35,17 @@ class MotorConstants:
 G1_KNEE = MotorConstants(kt=1.0, r=0.05)
 
 
-def copper_loss(tau, kt: float, r: float):
-    """Resistive heating power, W. Elementwise; numpy or jax."""
+def ohmic_power(tau, kt: float, r: float):
+    """Ohmic loss (Joule heating, I^2 R) in the windings, W. Always >= 0.
+
+    Grows with the square of joint torque; this is the term a parallel spring
+    reduces disproportionately by offloading torque. Elementwise; numpy or jax.
+    """
     return (tau / kt) ** 2 * r
+
+
+# Backward-compatible alias; "ohmic_power" is the preferred name.
+copper_loss = ohmic_power
 
 
 def electrical_power(tau, qvel, kt: float, r: float, regen: bool = False):

@@ -4,10 +4,14 @@ Reads trajectory.npz only — no env or jax dependency. Plots knee angle, knee
 torque, and the torque-angle work loop (the plot a spring curve gets fitted
 to), and prints summary stats.
 
---spring <config.yaml> runs the Milestone 3 POST-HOC analysis: subtract
+--spring <config.yaml> runs the offline (post-hoc) analysis: subtract
 tau_spring(theta) from the recorded motor torque on the same trajectory and
-recompute electrical power per knee. Optimistic upper bound — assumes the
-gait does not change. The credible comparison is in-loop retraining (M4).
+recompute electrical power per joint. Optimistic upper bound — assumes the gait
+does not change. The credible comparison is retraining with the spring included.
+
+Always prints a whole-body cost of transport (electrical energy / m g d), under
+the no-regeneration assumption (primary) with a regeneration value alongside for
+reference.
 """
 
 from __future__ import annotations
@@ -52,9 +56,47 @@ def posthoc(tr, spring_cfg_path: str) -> None:
             f"({100 * (cu_new / cu_base - 1):+5.1f}%)"
         )
     print(
-        f"  TOTAL knee electrical: {tot_base:.1f} -> {tot_spring:.1f} J "
+        f"  TOTAL joint electrical: {tot_base:.1f} -> {tot_spring:.1f} J "
         f"({100 * (tot_spring / tot_base - 1):+.1f}%)   "
         f"[Kt={kt}, R={r} PLACEHOLDER; no-regen]"
+    )
+
+
+def cost_of_transport_report(tr) -> None:
+    """Whole-body cost of transport from the recorded trajectory.
+
+    Sums electrical power over all actuated DoFs. No-regeneration clamps each
+    actuator's electrical power to >= 0 individually (a motor cannot recharge
+    the battery); the regeneration value allows negative power to net across
+    the bus and is reported only as a reference bound. Placeholder Kt/R, so the
+    ABSOLUTE CoT is not trustworthy; the spring-vs-no-spring RATIO and the ohmic
+    percentage are the defensible quantities.
+    """
+    dt = float(tr["dt"])
+    skip = int(TRANSIENT_S / dt)
+    kt, r = energy.G1_KNEE.kt, energy.G1_KNEE.r
+    tau = tr["qfrc_actuator"][skip:]            # (T, ndof)
+    omega = tr["qvel"][skip:]
+    mech = tau * omega                          # mechanical power per DoF
+    ohm = energy.ohmic_power(tau, kt, r)        # Joule heating per DoF
+    e_mech = float(np.sum(mech) * dt)
+    e_ohm = float(np.sum(ohm) * dt)
+    # no-regen: clamp per actuator, then sum; regen: allow netting across bus
+    e_elec_noregen = float(np.sum(np.maximum(mech + ohm, 0.0)) * dt)
+    e_elec_regen = float(np.sum(mech + ohm) * dt)
+    dist = float(np.linalg.norm(tr["qpos"][-1, :2] - tr["qpos"][skip, :2]))
+    mass = float(tr["total_mass"])
+    denom = mass * energy.G * max(dist, 1e-9)
+    print(
+        f"\nWHOLE-BODY energy over {len(tau)*dt:.1f} s, {dist:.2f} m "
+        f"(mass {mass:.1f} kg):\n"
+        f"  mechanical work {e_mech:7.1f} J   ohmic (Joule) {e_ohm:7.1f} J\n"
+        f"  electrical {e_elec_noregen:7.1f} J (no-regen) -> "
+        f"CoT {e_elec_noregen / denom:.3f}   [PRIMARY]\n"
+        f"  electrical {e_elec_regen:7.1f} J (regen)    -> "
+        f"CoT {e_elec_regen / denom:.3f}   [reference only]\n"
+        f"  [Kt={kt}, R={r} PLACEHOLDER — absolute CoT not trustworthy; "
+        f"use spring-vs-no-spring ratios]"
     )
 
 
@@ -108,6 +150,8 @@ def main() -> None:
     out = run_dir / "knee_gait.png"
     fig.savefig(out, dpi=120)
     print(f"saved {out}")
+
+    cost_of_transport_report(tr)
 
     if args.spring:
         posthoc(tr, args.spring)

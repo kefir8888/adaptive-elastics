@@ -1,0 +1,19 @@
+# In-loop gate, SPRING condition: linear parallel spring at the hip-pitch joint,
+# fixed at the offline (post-hoc) optimum from the 2026-06-11 baseline:
+#   k = 68 N*m/rad, theta0 = -0.29 rad  (constrained k>=0 fit, R^2 = 0.51-0.60).
+# Realized physically by the dual semi-parabolic mechanism within its linear
+# band (docs/mechanism.md). MUST share reward_scales with the baseline_gate.yaml
+# no-spring condition for a fair comparison.
+name: spring_hip_linear
+env_name: G1JoystickFlatTerrain
+seed: 1
+domain_randomization: true
+spring:
+  kind: linear
+  joint: hip_pitch
+  k: 68.0       # N*m/rad
+  theta0: -0.29  # rad
+reward_scales:
+  energy: -2.5e-4  # TUNE — the one magnitude to choose; enables co-adaptation
+                   # (default G1 reward has energy=0). Identical in both conditions.
+ppo: {}

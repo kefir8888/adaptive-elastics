@@ -22,33 +22,46 @@ from pea.config import SpringConfig
 
 @dataclasses.dataclass(frozen=True)
 class SpringSpec:
-    kind: str  # "constant" | "linear" | "nonlinear"
-    k: float = 0.0
-    theta0: float = 0.0
-    k3: float = 0.0
-    tau0: float = 0.0  # constant preload torque, N*m (kind="constant")
+    kind: str  # "constant" | "linear" | "semiparabolic"
+    k: float = 0.0       # linear stiffness [N*m/rad], or per-element quadratic
+                         # stiffness [N*m/rad^2] when kind="semiparabolic"
+    theta0: float = 0.0  # equilibrium angle [rad] (linear)
+    tau0: float = 0.0    # constant preload torque [N*m] (constant)
+    p1: float = 0.0      # lower onset [rad] (semiparabolic)
+    p2: float = 0.0      # upper onset [rad] (semiparabolic)
 
 
 def from_config(cfg: SpringConfig) -> SpringSpec | None:
     """None means no spring (baseline run)."""
     if cfg.kind == "none":
         return None
-    if cfg.kind not in ("constant", "linear", "nonlinear"):
+    if cfg.kind not in ("constant", "linear", "semiparabolic"):
         raise ValueError(f"unknown spring kind: {cfg.kind!r}")
     return SpringSpec(
-        kind=cfg.kind, k=cfg.k, theta0=cfg.theta0, k3=cfg.k3, tau0=cfg.tau0
+        kind=cfg.kind, k=cfg.k, theta0=cfg.theta0, tau0=cfg.tau0,
+        p1=cfg.p1, p2=cfg.p2,
     )
 
 
 def tau_spring(theta, spec: SpringSpec):
-    """Spring torque at knee angle theta (rad). Elementwise; numpy or jax."""
+    """Spring torque at joint angle theta (rad). Elementwise; numpy or jax.
+
+    - "constant": preloaded constant-torque element, tau = tau0.
+    - "linear": tau = -k*(theta - theta0).
+    - "semiparabolic": two opposed ONE-SIDED quadratic elements (zero on one
+      side of the onset, quadratic on the other) — the realizable building
+      block of the adjustable parallel spring (Hurst et al. 2004; Migliore et
+      al. 2005, see docs/mechanism.md). Element A engages above p1, element B
+      below p2; with p1 < p2 their overlap is exactly linear with stiffness
+      2k(p2-p1) and equilibrium (p1+p2)/2, and the outside is hardening.
+    """
     if spec.kind == "constant":
-        # Preloaded / constant-torque element. Motivated by the baseline knee
-        # work loop: gravity-support torque in a flexed-knee gait is offset-
-        # dominated, and the k>=0-constrained optimum degenerates to k=0.
         return spec.tau0 + 0.0 * theta  # broadcast to theta's shape
-    d = theta - spec.theta0
-    tau = -spec.k * d
-    if spec.kind == "nonlinear":
-        tau = tau - spec.k3 * d**3
-    return tau
+    if spec.kind == "linear":
+        return -spec.k * (theta - spec.theta0)
+    # semiparabolic: one-sided clamp via (d > 0) multiply (numpy/jax agnostic)
+    dA = theta - spec.p1
+    dA = dA * (dA > 0)            # 0 at/below p1, positive above
+    dB = spec.p2 - theta
+    dB = dB * (dB > 0)            # 0 at/above p2, positive below
+    return -spec.k * dA**2 + spec.k * dB**2

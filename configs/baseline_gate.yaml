@@ -1,0 +1,12 @@
+# In-loop gate, NO-SPRING condition (matched baseline). Identical to
+# spring_hip_linear.yaml except spring.kind=none. The reward_scales MUST match
+# the spring condition exactly, or the comparison is confounded.
+name: baseline_gate
+env_name: G1JoystickFlatTerrain
+seed: 1
+domain_randomization: true
+spring:
+  kind: none
+reward_scales:
+  energy: -2.5e-4  # TUNE — must equal the value in spring_hip_linear.yaml
+ppo: {}

@@ -1,0 +1,22 @@
+# Semi-parabolic (dual one-sided quadratic) hip-pitch spring — the physically
+# realizable mechanism (Hurst 2004 / Migliore 2005, docs/mechanism.md). Within
+# its overlap band [p1, p2] it is EXACTLY the linear spring of
+# spring_hip_linear.yaml (k_eff = 2k(p2-p1) = 68 N*m/rad, theta0 = (p1+p2)/2 =
+# -0.29 rad); outside the band it hardens.
+#
+# NOT for the first gate — we start with the idealized `linear` spring. Use this
+# later as a realizability check: confirm the gait stays inside the linear band
+# and that the hardening tails do not change the conclusion.
+name: spring_semiparabolic
+env_name: G1JoystickFlatTerrain
+seed: 1
+domain_randomization: true
+spring:
+  kind: semiparabolic
+  joint: hip_pitch
+  k: 42.5      # per-element quadratic stiffness [N*m/rad^2]
+  p1: -0.69    # lower onset [rad]
+  p2: 0.11     # upper onset [rad]
+reward_scales:
+  energy: -2.5e-4
+ppo: {}
