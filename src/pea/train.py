@@ -57,6 +57,14 @@ def main() -> None:
         default=None,
         help="override config/recommended step budget",
     )
+    p.add_argument(
+        "--energy-weight",
+        type=float,
+        default=None,
+        dest="energy_weight",
+        help="override energy_reward_weight (total-electrical penalty weight; "
+        "for the calibration sweep)",
+    )
     args = p.parse_args()
 
     # Must be set before jax initializes: the default 0.75 memory fraction
@@ -74,6 +82,9 @@ def main() -> None:
     from pea.env import make_env
 
     cfg = cfg_lib.load_config(args.config)
+    if args.energy_weight is not None:
+        import dataclasses
+        cfg = dataclasses.replace(cfg, energy_reward_weight=args.energy_weight)
     suffix = "smoke" if args.smoke else args.suffix
     run_dir = cfg_lib.new_run_dir(cfg, root=args.output_dir, suffix=suffix)
     ckpt_dir = (run_dir / "checkpoints").resolve()

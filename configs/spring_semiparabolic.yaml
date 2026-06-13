@@ -17,6 +17,5 @@ spring:
   k: 42.5      # per-element quadratic stiffness [N*m/rad^2]
   p1: -0.69    # lower onset [rad]
   p2: 0.11     # upper onset [rad]
-reward_scales:
-  energy: -2.5e-4
+energy_reward_weight: -2.5e-4  # total-electrical penalty (mech + ohmic, no regen)
 ppo: {}

@@ -1,12 +1,14 @@
 # In-loop gate, NO-SPRING condition (matched baseline). Identical to
-# spring_hip_linear.yaml except spring.kind=none. The reward_scales MUST match
-# the spring condition exactly, or the comparison is confounded.
+# spring_hip_linear.yaml except spring.kind=none. energy_reward_weight MUST
+# match the spring condition exactly, or the comparison is confounded.
 name: baseline_gate
 env_name: G1JoystickFlatTerrain
 seed: 1
 domain_randomization: true
 spring:
   kind: none
-reward_scales:
-  energy: -2.5e-4  # TUNE — must equal the value in spring_hip_linear.yaml
+# Total-electrical penalty (mechanical + ohmic, no regeneration) added to the
+# reward; same quantity we evaluate. TUNE via the calibration sweep
+# (configs reuse this path with --energy-weight). Must equal the spring value.
+energy_reward_weight: -2.5e-4
 ppo: {}

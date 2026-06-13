@@ -13,7 +13,7 @@ spring:
   joint: hip_pitch
   k: 68.0       # N*m/rad
   theta0: -0.29  # rad
-reward_scales:
-  energy: -2.5e-4  # TUNE — the one magnitude to choose; enables co-adaptation
-                   # (default G1 reward has energy=0). Identical in both conditions.
+# Total-electrical penalty (mechanical + ohmic, no regen) — the quantity we
+# evaluate. TUNE via the calibration sweep. Identical to baseline_gate.yaml.
+energy_reward_weight: -2.5e-4
 ppo: {}

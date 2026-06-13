@@ -44,9 +44,14 @@ class RunConfig:
     # Overrides merged onto Playground's recommended brax PPO params.
     ppo: dict = dataclasses.field(default_factory=dict)
     # Overrides merged onto the env's reward weights (reward_config.scales).
-    # The spring and no-spring conditions MUST share identical reward_scales for
-    # the in-loop comparison to be fair (the default G1 reward has energy=0).
     reward_scales: dict = dataclasses.field(default_factory=dict)
+    # Weight on a TOTAL-ELECTRICAL energy penalty added to the reward each step:
+    # per actuated DoF, max(tau*omega + (tau/Kt)^2*R, 0) (mechanical + ohmic,
+    # no regeneration) — the SAME quantity we evaluate, so reward and metric are
+    # aligned (unlike Playground's built-in `energy`, which is mechanical only
+    # and omits the ohmic channel where the spring helps most). 0 disables it.
+    # MUST be identical across the spring and no-spring conditions. Negative.
+    energy_reward_weight: float = 0.0
 
 
 def load_config(path: str | pathlib.Path) -> RunConfig:

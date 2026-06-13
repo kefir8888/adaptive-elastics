@@ -25,7 +25,43 @@ def make_env(cfg: RunConfig):
     spec = springs.from_config(cfg.spring)
     if spec is not None:
         env = SpringWrapper(env, spec, cfg.spring.joint)
+    if cfg.energy_reward_weight != 0.0:
+        env = ElectricalRewardWrapper(env, cfg.energy_reward_weight)
     return env
+
+
+class ElectricalRewardWrapper:
+    """Adds a TOTAL-ELECTRICAL energy penalty to the reward, in both conditions.
+
+    Per actuated DoF the electrical power is max(tau*omega + (tau/Kt)^2*R, 0) —
+    mechanical plus ohmic, with no regeneration — the same quantity the
+    evaluation cost of transport uses, so the training objective is aligned with
+    the metric. tau is the MOTOR torque (qfrc_actuator), so in the spring
+    condition the spring's contribution (injected via qfrc_applied) is correctly
+    excluded from the motor's electrical cost. Kt, R are the placeholder
+    constants in energy.G1_KNEE, identical across conditions.
+    """
+
+    def __init__(self, env, weight: float):
+        from pea.energy import G1_KNEE
+
+        self._env = env
+        self._weight = float(weight)
+        self._kt = G1_KNEE.kt
+        self._r = G1_KNEE.r
+
+    def step(self, state, action):
+        import jax.numpy as jnp
+
+        state = self._env.step(state, action)
+        tau = state.data.qfrc_actuator[..., 6:]   # actuated DoFs (skip free base)
+        omega = state.data.qvel[..., 6:]
+        p_elec = jnp.maximum(tau * omega + (tau / self._kt) ** 2 * self._r, 0.0)
+        penalty = self._weight * jnp.sum(p_elec, axis=-1)  # weight < 0 -> a cost
+        return state.replace(reward=state.reward + penalty)
+
+    def __getattr__(self, name):
+        return getattr(self._env, name)
 
 
 class SpringWrapper:
