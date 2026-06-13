@@ -81,20 +81,18 @@ def cost_of_transport_report(tr) -> None:
     ohm = energy.ohmic_power(tau, kt, r)        # Joule heating per DoF
     e_mech = float(np.sum(mech) * dt)
     e_ohm = float(np.sum(ohm) * dt)
-    # no-regen: clamp per actuator, then sum; regen: allow netting across bus
-    e_elec_noregen = float(np.sum(np.maximum(mech + ohm, 0.0)) * dt)
-    e_elec_regen = float(np.sum(mech + ohm) * dt)
+    # No regeneration: each actuator's electrical power is clamped >= 0 (a geared
+    # G1 motor does not recharge the battery during braking). This is the sole
+    # reported model — see docs/related_work.md / RESULTS.md.
+    e_elec = float(np.sum(np.maximum(mech + ohm, 0.0)) * dt)
     dist = float(np.linalg.norm(tr["qpos"][-1, :2] - tr["qpos"][skip, :2]))
     mass = float(tr["total_mass"])
     denom = mass * energy.G * max(dist, 1e-9)
     print(
         f"\nWHOLE-BODY energy over {len(tau)*dt:.1f} s, {dist:.2f} m "
-        f"(mass {mass:.1f} kg):\n"
+        f"(mass {mass:.1f} kg), no regeneration:\n"
         f"  mechanical work {e_mech:7.1f} J   ohmic (Joule) {e_ohm:7.1f} J\n"
-        f"  electrical {e_elec_noregen:7.1f} J (no-regen) -> "
-        f"CoT {e_elec_noregen / denom:.3f}   [PRIMARY]\n"
-        f"  electrical {e_elec_regen:7.1f} J (regen)    -> "
-        f"CoT {e_elec_regen / denom:.3f}   [reference only]\n"
+        f"  electrical {e_elec:7.1f} J  ->  CoT {e_elec / denom:.3f}\n"
         f"  [Kt={kt}, R={r} PLACEHOLDER — absolute CoT not trustworthy; "
         f"use spring-vs-no-spring ratios]"
     )
