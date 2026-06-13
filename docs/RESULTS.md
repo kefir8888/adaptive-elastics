@@ -54,7 +54,7 @@ overlaps the H100's almost exactly — the learning dynamics are hardware
 independent, only wall-clock differs (~7 h vs ~1 h). Plot:
 `outputs/reward_curves.png`.
 
-**Local replay (Mac CPU, the M1 acceptance test):** the trained policy walks
+**Local replay (Mac CPU, the Milestone 1 acceptance test):** the trained policy walks
 **10.76 m in 12.0 s = 0.90 m/s** against a 1.0 m/s forward command, no fall.
 Video `pea_runs/2026-06-11_baseline_h100/video.mp4`. (Distance is planar
 displacement — initial heading is randomized at reset, so world-frame x alone
@@ -108,7 +108,7 @@ Reading: copper loss (the quadratic, torque-squared term) drops 36–42 %, as
 expected when a constant offload shaves the torque the motor must supply; the
 total electrical figure is smaller because mechanical `τ·ω` work is unchanged
 on a fixed gait. **These are optimistic; the credible number requires
-retraining (M4).**
+retraining (Milestone 4).**
 
 ---
 
@@ -137,10 +137,10 @@ retraining (M4).**
    published; sets the copper-vs-mechanical blend in the headline number.
 2. **Swing-phase cost of an always-engaged preload** — a constant extension
    torque helps in stance but fights the motor in swing and may hurt foot
-   clearance. Visible in the data; only in-loop retraining (M4) reveals whether
+   clearance. Visible in the data; only in-loop retraining (Milestone 4) reveals whether
    the gait can absorb it. (This is why some hardware PEAs add a clutch.)
 3. **No-regen assumption** — favourable to the spring by design; if the G1
    actually regenerates, the negative-work win shrinks. Worth a sensitivity
    pass.
-4. **Single baseline seed** — for a credible M4 result, train ≥2–3 seeds per
+4. **Single baseline seed** — for a credible Milestone 4 result, train ≥2–3 seeds per
    arm so the comparison is best-vs-best, not single-sample.

@@ -119,7 +119,7 @@ post-hoc-vs-in-loop contrast. No surveyed work occupies it.
 2. **The hip-pitch pivot is well-supported by prior art.** STEPPR's biped wins
    were at the **hip and ankle**, not the knee — consistent with our own data
    (hip is an AC joint where a buildable linear spring captures ~55% of
-   mean-square torque vs the knee's collapse to a constant). Moving M4 to the hip
+   mean-square torque vs the knee's collapse to a constant). Moving Milestone 4 to the hip
    aligns the experiment with where parallel elasticity has actually paid on
    bipeds.
 3. **The no-regen assumption is NOT supported by the literature** (that claim was

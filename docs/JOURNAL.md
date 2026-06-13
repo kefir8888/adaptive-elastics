@@ -13,23 +13,23 @@ happened, what's open/broken, and the single next step.
   DoFs via `qfrc_applied`, beside the motors so `qfrc_actuator` stays "motor
   torque"); verified under jit and via full CPU smoke-train. Ran the Milestone 3
   post-hoc analysis end to end. Wrote `docs/RESULTS.md` (detailed numbers/methods
-  across M1–M4). Launched the deep-research prior-art/novelty survey.
+  across Milestone 1–Milestone 4). Launched the deep-research prior-art/novelty survey.
 - **Decided:** Spring enters through `qfrc_applied`, not the actuator path —
   keeps the energy model honest. Lightened the literature workflow's adversarial
   verification from 3-vote to 1-vote after it twice stalled on the API usage
   limit (75 verify agents → 25); accepting weaker robustness, will spot-check the
   near-scoop papers by hand.
-- **Result / numbers:** M3 post-hoc (constant −12 N·m, fixed gait, placeholder
+- **Result / numbers:** Milestone 3 post-hoc (constant −12 N·m, fixed gait, placeholder
   Kt/R, no-regen): knee copper loss −41.5 %/−35.8 % (L/R), total knee electrical
   −16.1 %. See `docs/RESULTS.md`. Lit-review preliminary (UNVERIFIED, from the
   failed run's logs): closest prior art is a Skoltech PEA-knee paper (same
   energy accounting but no RL), STEPPR (parallel springs, no gait
   co-adaptation), Duke Humanoid (efficiency RL, no parallel knee element) —
   our RL-co-adaptation-on-a-commercial-humanoid combination appears unclaimed.
-- **Open / broken:** M4 retrain not yet run. Real G1 Kt/R still needed —
+- **Open / broken:** Milestone 4 retrain not yet run. Real G1 Kt/R still needed —
   and the survey REFUTED the no-regen assumption (not supported by literature),
   so it must be justified from G1 driver specs, not asserted.
-- **Next:** run the M4 spring arm on a fresh H100 box and compare best-vs-best.
+- **Next:** run the Milestone 4 spring arm on a fresh H100 box and compare best-vs-best.
 
 ### Update (2026-06-12, eve): spring-mechanism derived but NOT novel; DecARt; Direction 1 chosen
 - **Did:** Derived the "two offset half-parabolic springs → tunable linear spring"
@@ -69,7 +69,7 @@ happened, what's open/broken, and the single next step.
 - **Open:** stance/swing knee-θ AND hip-θ ranges OVERLAP (both joints), so an
   angle-keyed dead zone can't gate either; hip's AC/symmetric nature may let an
   always-on spring help both phases without a clutch (needs in-loop test).
-- **Next (proposed, awaiting go):** pivot M4 to hip-pitch — add E[τ|θ] decomp to
+- **Next (proposed, awaiting go):** pivot Milestone 4 to hip-pitch — add E[τ|θ] decomp to
   `analyze.py`, write `configs/spring_hip_linear.yaml`, retrain on H100.
 
 ---
@@ -86,7 +86,7 @@ happened, what's open/broken, and the single next step.
   (≈1 h); per-run cost ≈ identical, ~115 ₽. (2) `impl: jax` everywhere (Playground 0.2.0
   defaults to Warp — broken on Mac). (3) jax pinned <0.10 (brax 0.14.2 incompat).
   (4) Added a `constant` spring kind — see below; it, not the linear spring, is the lead
-  M4 candidate. (5) Train full 200M for comparison runs (reward still climbing at 170M).
+  Milestone 4 candidate. (5) Train full 200M for comparison runs (reward still climbing at 170M).
 - **Result / numbers:** run `pea_runs/2026-06-11_baseline_h100` (+ partial T4 twin
   `_baseline_2`, stopped at ~75M). Knee work loop is OFFSET-dominated: flexed-knee gait
   carries ~−12 N·m gravity-support torque; constrained (k≥0) spring fit degenerates to
@@ -97,9 +97,9 @@ happened, what's open/broken, and the single next step.
   copper:mechanical blend in headline numbers. Swing-phase cost of always-engaged preload
   visible in data but gait-feasibility (foot clearance) unknown until in-loop. Deep
   literature review (novelty/prior art, three-level report) running in background.
-  Spring injection into the MJX env step not yet implemented (M4 blocker).
+  Spring injection into the MJX env step not yet implemented (Milestone 4 blocker).
 - **Next:** implement spring torque injection in `env.py` (wrapper adding τ_spring at
-  knee DoFs inside step), smoke-test, then M4: retrain with `spring_constant.yaml` on a
+  knee DoFs inside step), smoke-test, then Milestone 4: retrain with `spring_constant.yaml` on a
   fresh H100 box and compare best-vs-best.
 
 - **Did:** what got built / run / changed.
