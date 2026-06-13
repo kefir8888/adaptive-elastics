@@ -74,18 +74,46 @@ framing for the paper:
 > 2005): two one-sided quadratic springs with servo-positioned onsets give
 > `K_eff = 2k(p₂−p₁)` and equilibrium `(p₁+p₂)/2`.*
 
-## 4 · If a mechanism-level contribution is still wanted, it must be *earned*
+## 4 · The distinguishing capability: full passive disengagement (a tunable clutch)
 
-Two routes that pretensioned VSAs do **not** already own — each an empirical
-claim, not a principle claim:
+This is where the construction goes **beyond** Hurst/Migliore, and it is a
+mechanism-level claim worth making. Because each element is *semi*-parabolic —
+genuinely zero on one side of its onset (true slack, not preload) — separating
+the onsets so that `p₂ < p₁` opens a **dead zone `[p₂, p₁]` of exactly zero
+torque**. If that dead zone covers the joint's angular excursion, the spring is
+**completely disengaged and the joint behaves as a free actuator with no spring
+at all.** Verified in code on the hip range [−0.79, +0.02] rad:
 
-1. **Onset-block repositioning vs pretension tuning** — measure a concrete
-   advantage (holding-power / energy cost of retuning, or tuning-under-load
-   behavior). Algebraically `x₃ ↔ (p₂−p₁)/2` are identical, so any win is purely
-   implementation.
-2. **Non-overlapping-onset regime** — the same hardware then yields a
-   *tunable-width dead zone* (zero-torque window) + tunable outer stiffness,
-   which pretensioned antagonistic VSAs cannot reach. **Caveat:** our own data
-   (`JOURNAL.md` 2026-06-12) shows stance/swing angle ranges **overlap** at both
-   knee and hip, so an angle-keyed dead zone likely won't pay on this gait —
-   would need a state-triggered clutch instead.
+| onsets | regime | max |τ| over range |
+|---|---|---|
+| `p₁=−0.69, p₂=+0.11` (overlap, `p₁<p₂`) | engaged linear spring, `K_eff=68` | 34.4 N·m |
+| `p₁=+0.05, p₂=−0.80` (separated, `p₂<p₁`) | **free joint** | **0.0 N·m** |
+
+**Why pretensioned antagonistic VSAs (Hurst 2004, Migliore 2005, MACCEPA) cannot
+do this:** their springs are *preloaded* and always in tension (a pretension
+winch can pull but cannot create slack), so they have a nonzero minimum stiffness
+and always apply a restoring torque. They can soften, not vanish. The one-sided
+slack here gives a continuum: overlapping onsets → linear spring of stiffness
+`2k(p₂−p₁)`; touching → zero stiffness; separated → free joint with a
+tunable-width dead zone. This is a **passive, purely mechanical clutch realized
+by the same two servos**, with no added clutch mechanism — and it is the
+mechanism-level contribution the novelty survey found is *not* covered by prior
+art.
+
+**Precise scope (design-correctness):**
+- **Full disengagement between operating conditions — yes, statically.** Set the
+  dead zone to cover the excursion and the joint is free for that whole
+  condition. Consequence for the adaptive system: "spring off" is always an
+  achievable setting, so an adaptively-tuned spring is **weakly dominant over the
+  no-spring baseline** — it can never make a condition worse than free, because
+  free is one of its settings.
+- **Phase-selective gating within one stride — no, not statically.** Engaging in
+  stance and freeing in swing would need the dead zone to track gait *phase*, but
+  our data (`JOURNAL.md` 2026-06-12) shows the stance and swing angle ranges
+  **overlap** at the hip, so a static angle-keyed dead zone cannot separate them;
+  that would still require moving the onsets within the stride (fast servos).
+
+A secondary, implementation-level claim also remains (not a principle): measuring
+any advantage of onset-block repositioning over pretension tuning (holding power,
+tuning under load). Algebraically `x₃ ↔ (p₂−p₁)/2`, so that one is purely an
+engineering comparison.
