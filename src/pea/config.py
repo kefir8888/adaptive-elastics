@@ -44,7 +44,13 @@ class RunConfig:
     # Overrides merged onto Playground's recommended brax PPO params.
     ppo: dict = dataclasses.field(default_factory=dict)
     # Overrides merged onto the env's reward weights (reward_config.scales).
+    # e.g. {action_rate: -0.01} to enable the (default-zero) smoothness penalty
+    # that suppresses control chatter; {feet_air_time: 4.0} to push a running gait.
     reward_scales: dict = dataclasses.field(default_factory=dict)
+    # Overrides merged onto TOP-LEVEL env config keys (not reward scales), e.g.
+    # {lin_vel_x: [0.0, 3.0]} to widen the joystick speed range for running (the
+    # default is [-1, 1] m/s — commanding faster is out-of-distribution and falls).
+    env_overrides: dict = dataclasses.field(default_factory=dict)
     # Weight on a TOTAL-ELECTRICAL energy penalty added to the reward each step:
     # per actuated DoF, max(tau*omega + (tau/Kt)^2*R, 0) (mechanical + ohmic,
     # no regeneration) — the SAME quantity we evaluate, so reward and metric are

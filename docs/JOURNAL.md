@@ -8,6 +8,131 @@ happened, what's open/broken, and the single next step.
 
 ---
 
+## 2026-06-14 (eve) — Running-efficiency program launched
+- **Decided (running program, `docs/running_program.md`):** next task = G1 **running
+  for EFFICIENCY** (not speed — knee is speed-limited; the spring's braking-recovery
+  lever is bigger in running than walking). **No-regeneration = JUSTIFIED** (no modern
+  humanoid driver regenerates; verification workflow running). **Hopping DROPPED**
+  (full humanoid, not a Raibert hopper). **Go2 quadruped ADDED** as a parallel track.
+  Step-2 per-joint post-hoc = hard **GO/NO-GO gate** (must beat walking's ~3 %).
+  Adaptive co-design = **later**; speed/load ranges = **end**. Spring targets = the
+  **pitch trio** (hip/knee/ankle), plot all leg joints; knee back in play for
+  efficiency (its speed limit only excludes height).
+- **Did:** Inspected the Playground G1 reward — **the sawtooth is a disabled penalty**:
+  `action_rate`/`dof_acc`/`torques` = 0.0 by default, so enabling `action_rate`
+  (negative) fixes the ~55 %-reversal chatter, no code change. Command `lin_vel_x`
+  defaults to **[-1,1] m/s** (why 2.0 fell). Added `env_overrides` to RunConfig +
+  make_env (override top-level env keys, e.g. the speed range); scaffolded
+  `configs/run_baseline.yaml` (wider speed range + smoothness on + energy weight;
+  reward weights TODO from SOTA) — loads and builds. Wrote `docs/running_program.md`
+  (full pipeline, milestones, validity guards, GPU checklist, Go2 track).
+- **Workflows landed, all folded in:** (a) running-RL SOTA `wf_c9783c03` → full
+  reward in `configs/run_baseline.yaml` (smoothness trio action_rate -0.01 / dof_acc
+  / torques; feet_air_time 2→4 + lin_vel_z; ElectricalRewardWrapper; ≥3 seeds; warm
+  from walker; optional rough finetune; velocity-gated flight bonus only if hopping).
+  (b) regen+Go2 `wf_924da954` → **no-regen JUSTIFIED for the G1 by back-EMF physics**
+  (back-EMF < 48 V bus at locomotion speeds; regen-resistor pattern), NOT a verified
+  spec; exceptions MIT Cheetah 2013 + reportedly Tesla Optimus; ~24 % sensitivity.
+  Go2 plan filled (6.22:1, Kt 0.26, R unmeasured=blocker, ohmic 39–76 %; differentiate
+  vs Bjelonic/PIL by battery-electrical + zero-shot conditioned policy).
+- **Infra:** `env_overrides` now also reaches nested reward_config keys (dotted);
+  multi-joint `pea-sweep` (pitch trio) + per-joint braking + `metrics.fit_linear_spring`
+  (recovers the hip k=68/θ0=-0.29 optimum). All CPU-validated; updated CLAUDE.md,
+  RESULTS.md, PLAN.md, running_program.md.
+- **Next (GPU):** calibrate the energy weight; train the baseline runner (run_baseline)
+  ≥3 seeds; rollout + `pea-sweep` per-joint gate; if it clears walking's ~3 %, the
+  fixed-spring in-loop runner.
+- **Also: cross-morphology taxonomy** (`docs/taxonomy.md`, wf_dee7acba). Key insight —
+  the spring's dominant benefit **shifts with gear ratio**: LOW-gear QDD (Berkeley 9:1,
+  Go1/Go2/Barkour 6:1) → ENERGY (8–17 % CoT); MID (G1 22.5:1) → marginal; HIGH-gear
+  harmonic/SEA (Apollo, Spot, ANYmal) → WEAR/peak-load (ohmic≈0). Quadrupeds are NOT
+  all the same (QDD class homogeneous; ANYmal/Spot high-gear differ); humanoids split
+  3 ways. Playground ships ready envs for G1/H1/Berkeley/Apollo/OP3/**Booster T1**
+  (∥ ankle confirmed) + Go1/Spot/Barkour → a comprehensive study is **~£160–210**
+  (~55–65 runs; Tier-0 post-hoc screening ~£35–50 gives the picture). Placement:
+  biped→hip-pitch, quadruped→knee, biped-knee=constant element. Added a wear metric
+  (peak+RMS torque) to `metrics`. Cassie already sprung; DecART has no env (model work).
+
+## 2026-06-14 — Motor budget, actuation share, six-direction strategy map
+- **Did:** Measured the baseline motor budget (`scripts/motor_budget.py`,
+  `power_compare.py`): whole-body motor electrical ≈178 W, ohmic ~4 %, **hip-pitch
+  = 27.3 %** of motor electrical (knees 36.7 %). Confirmed the post-hoc hip-spring
+  saving exactly: hip-pitch 48.7→43.5 W, whole-body 178.5→173.3 W (−5.2 W, −2.9 %),
+  and **~0 W under regeneration** (the win is braking-energy recovery the no-regen
+  clamp would otherwise dump; +43 W = +32 % no-regen tax). Researched the
+  actuation share of total robot power (G1 421 Wh, ~210 W mixed-use; house load
+  ~45 W → **actuation ~80–90 % walking**). Ran 3 research workflows (gear ratios,
+  prior art, energetics) and two no-training probes (`probe_speed_hold.py`).
+  Wrote **`docs/directions.md`** (six directions + decisions + gear table) and
+  fixed RESULTS.md's stale knee-constant Milestone-4 section.
+- **Probes:** stand/hold → walking-tuned spring saves ~0 W; faster walking
+  (1.23 m/s) → ohmic share stays ~3.8 %, braking 46→63 W, spring gain 5→6 W;
+  command 2.0 m/s destabilises the 1 m/s walker (running needs its own policy).
+- **Decided (directions):** TRY **(1)** in-loop G1 gate first, **(2)** running
+  G1/H1 [appeal = larger braking energy + bouncing gaits; needs a purpose-trained
+  running policy. NB the passive dead-zone clutch does NOT solve the within-stride
+  swing-fight — it is a between-conditions on/off, so its value lives in the
+  adaptive sweep / Direction 5, not running], **(5)** quadrupeds across slopes/loads via a **single zero-shot
+  spring-conditioned policy, NO per-condition RL retrain** (differentiator vs
+  Bjelonic 2023), **(6)** DecART/parallel-kinematics leg-length spring
+  (experimental). **(3)** low-gear humanoid only as a research-platform comparison
+  (Berkeley Humanoid is not a product, not thermally efficient) — lower priority.
+  **SKIP (4)** manipulation/static (nothing surprising; probe confirms ~0 on G1).
+- **Key facts:** G1 22.5:1 is near the LOW end of *commercial* humanoids (most are
+  harmonic 100:1+); low-gear = research/QDD (Berkeley 9.1:1, MIT Cheetah/Go ~6:1).
+  Corrections: ANYmal is 100:1 (not low-gear); "−31 % joint electrical" is STEPPR,
+  not Bjelonic (Bjelonic = +33 % torque-square, −30 % peak, +11 % runtime).
+- **Open / broken:** running upside is theoretical until a running policy exists;
+  DecART gear ratio unpublished (decides LOW vs MED). No-regen still unjustified
+  from G1 driver specs.
+- **Next:** run the Milestone 4 in-loop gate on a GPU box (unchanged); then train a
+  G1/H1 running policy for Direction 2.
+- **Also (later):** generalized the one-off scripts into a reusable harness —
+  `pea-sweep` (`src/pea/experiment.py` + `metrics.py`, entry point in pyproject):
+  sweeps **robot × task × spring** and tabulates energy AND performance metrics.
+  Validated on the baseline (walk no-spring 181 W; k=68 −5.7 %/−3.1 %; k=68 > k=100;
+  stand ~0). Motor-constant registry `energy.MOTORS` (g1; go2 placeholder R).
+  Reframe recorded (`directions.md` "Two value axes"): adaptive elastics also
+  **amplify peak power → jump higher / run faster**, a performance axis that is
+  NOT obviously gear-limited the way the ~4 % ohmic lever is — possibly a more
+  compelling demo on the G1 than CoT. Corrected the dead-zone clutch framing
+  (between-conditions on/off, NOT a within-stride running clutch; its value is
+  Direction 5 + per-task engagement). CLAUDE.md goal still says "efficiency only" —
+  worth broadening to include the performance axis.
+- **Also (later 2): Part 2 reframed + bifurcation + motor envelope.** Recorded the
+  **bifurcation** the owner named: Track A = efficiency of REPETITIVE motion (Part 1)
+  vs Track B = EXPLOSIVE moves (Part 2), which may be one-shot (a max jump — CoT
+  doesn't apply) or cyclic (hopping). Part 2 split into **(B1)** jump HEIGHT/speed —
+  series-favoring (SEA 1.4–4×, parallel ~1.3×), gear-discounted, and **unresolved**
+  (torque- vs speed-limited at takeoff; stock G1 long jump hits ~139 N·m knee →
+  tilts torque-limited) — and **(B2)** efficiency/peak-load of jumps+landings, the
+  **defensible parallel case on the G1** (landing load is impact-velocity-driven, so
+  the gear speed-cap doesn't apply; jump torques dwarf walking). CLAUDE.md Part 2 +
+  `directions.md` updated. **Motor torque–speed envelope added**, then CORRECTED:
+  the MuJoCo G1 DOES enforce joint TORQUE limits (`jnt_actfrcrange`, jnt_actfrclimited
+  True: knee ±139, hip ±88, ankle ±50 — I'd wrongly checked `actuator_forcerange`
+  [0,0]); only the velocity rolloff is missing. `energy.MotorLimits`/`G1_LIMITS`
+  (tau_peak from the model; **omega_noload 25 ESTIMATE — still the decisive unknown,
+  flips the verdict**), `metrics.saturation()` (reads real per-joint torque cap,
+  robust percentiles), `env.joint_torque_limits()`. Walking diagnostic with real
+  caps: hip torque-bound (50 % of 88), knee speed-bound (at the estimate).
+  A motor-param web chase (wf_7aae1cea) **FAILED — 0 external sources, circled back
+  to our own repo estimates**; torque caps then recovered from the local menagerie
+  model, and **the velocity limits from the official Unitree G1 URDF**
+  (unitree_ros g1_23dof, direct WebFetch): **knee 139 N·m / 20 rad/s, hip 88 / 32,
+  ankle 35–50 / 30**. **Torque-vs-speed RESOLVED:** the **knee is SPEED-limited**
+  (walker already at ~52–67 % of 20 rad/s) and the **hip is TORQUE-limited** (50 %
+  of 88 N·m, 11 % of speed). Consequence: **a parallel spring cannot raise G1 jump
+  HEIGHT** (knee speed-capped → series/low-gear for height); it still helps the hip
+  (torque) and the efficiency/landing case. `energy.G1_JOINT_VEL` added;
+  `metrics.saturation()` now uses both real walls per joint.
+  Sawtooth confirmed: control reverses ~55 %/step, peak/RMS up to 4.4 — inflates
+  ohmic; the saturation diagnostic now uses robust percentiles to dodge it.
+  Fixed two refuted citations in `related_work.md` (Plooij&Wisse ~80% → disputed,
+  ~20% on a 2-DOF arm; BirdBot −90% unverified). **Decisive next input:** real 7520
+  omega_noload; **decisive test:** a max-jump policy (GPU) + the envelope, then
+  `metrics.saturation()` reads off torque- vs speed-limited.
+
 ## 2026-06-13 — Gate fully prepared; reward = total electrical; ready for GPU
 - **Did:** Generalised `SpringWrapper` to any joint (`spring.joint`, now hip-pitch).
   Replaced cubic "nonlinear" spring with **semiparabolic** (two one-sided

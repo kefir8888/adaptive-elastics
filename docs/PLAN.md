@@ -8,6 +8,25 @@ spring** (adopted prior art — Hurst 2004 / Migliore 2005, see `mechanism.md`),
 (DecARt decoupled leg). Design-correctness guards in the memory
 `experimental-design-watchdog`.
 
+> **2026-06-14 — strategic directions chosen.** After measuring that the G1-walk
+> ohmic lever is small (~4 % of the motor budget, ~3 % whole-body saving,
+> ~0 % under regen), a six-direction assessment (`docs/directions.md`) set the
+> go-forward order: **(1) in-loop G1 gate → (2) running G1/H1 [needs a running
+> policy; appeal = braking energy + bouncing gaits, NOT the clutch] → (5) quadrupeds across
+> slopes/loads via a single ZERO-SHOT spring-conditioned policy (no per-condition
+> retrain, unlike Bjelonic 2023) → (6) DecART/parallel-kinematics leg-length
+> spring (experimental) → (3) low-gear research-platform comparison (lower
+> priority)**. Manipulation/static holding (4) is **dropped**. Milestones 5–6
+> below still apply as the G1 sub-roadmap; the directions doc is the wider map.
+
+> **2026-06-14 (eve) — running-efficiency program** is now the active execution
+> plan: `docs/running_program.md` (G1 running for efficiency + a Go2 quadruped
+> track). Infra landed: `env_overrides` (speed-range override), `configs/run_baseline.yaml`
+> (the sawtooth is a default-zero `action_rate` penalty — enabling it fixes it),
+> multi-joint `pea-sweep` + per-joint braking energy + `metrics.fit_linear_spring`
+> (per-joint post-hoc optimum, validated). Reward weights pending the running-RL
+> SOTA workflow.
+
 ## Phase 0 — Infrastructure ✅ DONE
 - Repo + GitHub + Google Drive sync; immers.cloud H100 pipeline driven over SSH;
   CPU rollout/analysis on the Mac. Cross-hardware reproducibility confirmed

@@ -14,7 +14,7 @@ for w in $WEIGHTS; do
   # NOTE: --energy-weight=$w (equals form) — argparse reads a leading-'-' value
   # only with '='; scientific notation like -5e-4 is not matched as a number.
   ~/.local/bin/uv run pea-train \
-    --config configs/baseline_gate.yaml \
+    --config configs/walk_baseline.yaml \
     --energy-weight="$w" \
     --num_timesteps "$STEPS" \
     --output_dir "$HOME/runs" \

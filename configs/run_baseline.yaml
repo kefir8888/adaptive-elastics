@@ -1,0 +1,49 @@
+# Baseline RUNNER (no spring) — G1 running for EFFICIENCY. See docs/running_program.md.
+# Reward from the running-RL SOTA workflow (2026-06-14); CALIBRATE on the first runs.
+# The spring arm MUST reuse env_overrides + reward_scales + energy weight IDENTICALLY.
+name: run_baseline
+env_name: G1JoystickFlatTerrain
+seed: 1
+domain_randomization: true
+spring:
+  kind: none
+
+# Top-level / nested env overrides (dotted keys reach reward_config).
+env_overrides:
+  lin_vel_x: [0.0, 2.5]                 # running speed range (default [-1,1] falls >1)
+  episode_length: 1000                  # 20 s episodes for running
+  reward_config.base_height_target: 0.78  # running crouch ~0.78 m (TODO verify convention; default 0.5)
+  reward_config.max_foot_height: 0.20   # higher swing for running
+  reward_config.max_contact_force: 400  # tighter -> land with flexed knees
+
+# reward_config.scales. The SMOOTHNESS TRIO (action_rate/dof_acc/torques) were all
+# 0.0 by default — that is the ~55%-reversal sawtooth; enabling action_rate is THE fix.
+reward_scales:
+  tracking_lin_vel: 1.5     # stronger speed signal for a runner (default 1.0)
+  tracking_ang_vel: 0.5     # yaw matters less in a straight runner (default 0.75)
+  orientation: -2.0
+  ang_vel_xy: -0.3          # stiffen (default -0.15): running has more roll/pitch
+  base_height: 0.5          # enable (default 0); keep an upright running posture
+  lin_vel_z: -0.2           # enable: damp vertical CoM oscillation / hopping-in-place
+  feet_air_time: 4.0        # double (default 2.0): push a flight phase
+  feet_clearance: -0.3      # enable: no foot scraping in swing
+  feet_slip: -0.5           # stiffen (default -0.25): slip worse at speed
+  action_rate: -0.01        # *** primary anti-chatter fix (default 0.0) ***
+  dof_acc: -2.5e-7          # second-order smoothing (start tiny)
+  torques: -1.0e-4          # light torque regularisation (also lowers ohmic)
+  pose: -0.05               # freer running pose (default -0.1)
+  joint_deviation_hip: -0.1     # freer hip (default -0.25)
+  joint_deviation_knee: -0.05   # freer knee (default -0.1)
+  contact_force: -0.01
+  # kept at defaults: termination -100, collision -0.1, dof_pos_limits -1, stand_still -1
+
+# Total-electrical penalty (mechanical + ohmic, NO regen) — the metric we evaluate;
+# NOT Playground's built-in `energy` (mechanical-only, undercounts the spring).
+# IDENTICAL weight in the spring arm. TODO calibrate to <=15% of mean tracking reward.
+energy_reward_weight: -2.5e-4
+
+# Running-specific reward ADDITIONS not in Playground (a small wrapper, add only if a
+# hopping/skipping degeneracy appears — see docs/running_program.md):
+#   flight_bonus = +0.5*(1-contact_L)*(1-contact_R)*I[v_x>1.5], clipped <=0.3/step
+#   double_stance_penalty = -0.3*I[contact_L AND contact_R] when |v_x|>0.5
+ppo: {}

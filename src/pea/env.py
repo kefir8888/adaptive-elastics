@@ -21,6 +21,15 @@ def make_env(cfg: RunConfig):
     env_cfg.impl = cfg.impl  # 'jax', not the broken Warp default
     for key, value in cfg.reward_scales.items():
         env_cfg.reward_config.scales[key] = value
+    for key, value in cfg.env_overrides.items():  # e.g. lin_vel_x range for running
+        if "." in key:  # nested, e.g. reward_config.base_height_target
+            *parents, leaf = key.split(".")
+            obj = env_cfg
+            for parent in parents:
+                obj = obj[parent]
+            obj[leaf] = value
+        else:
+            env_cfg[key] = value
     env = registry.load(cfg.env_name, config=env_cfg)
     spec = springs.from_config(cfg.spring)
     if spec is not None:
@@ -98,6 +107,39 @@ class SpringWrapper:
 
     def __getattr__(self, name):
         return getattr(self._env, name)
+
+
+def joint_torque_limits(mj_model: mujoco.MjModel) -> dict:
+    """Real per-joint actuator-torque limits the model already ENFORCES.
+
+    These live in `jnt_actfrcrange` (joint-level, jnt_actfrclimited=True), NOT in
+    `actuator_forcerange` (which the Playground G1 leaves [0,0]). Authoritative
+    from the MuJoCo Menagerie G1: knee ±139, hip-pitch/yaw ±88, ankle-pitch ±50.
+    So the TORQUE half of the motor envelope is present and active; only the
+    velocity rolloff (back-EMF) is missing (MuJoCo has no joint speed limit) —
+    diagnose speed-limiting post-hoc with `metrics.saturation()`.
+    """
+    out = {}
+    for j in range(mj_model.njnt):
+        if mj_model.jnt_actfrclimited[j]:
+            name = mujoco.mj_id2name(mj_model, mujoco.mjtObj.mjOBJ_JOINT, j)
+            out[name] = float(mj_model.jnt_actfrcrange[j][1])
+    return out
+
+
+def set_torque_limit(mj_model: mujoco.MjModel, tau_peak: float) -> mujoco.MjModel:
+    """Override the joint torque ceiling to ±tau_peak on every actuated joint.
+
+    Writes `jnt_actfrcrange` (the field MuJoCo enforces — an earlier version wrote
+    the ignored `actuator_forcerange`). Rarely needed: the model already carries
+    the real per-joint limits (see `joint_torque_limits`); use this only to test a
+    different ceiling.
+    """
+    import numpy as np
+
+    limited = mj_model.jnt_actfrclimited.astype(bool)
+    mj_model.jnt_actfrcrange[limited] = np.array([-tau_peak, tau_peak])
+    return mj_model
 
 
 def joints_by_substring(mj_model: mujoco.MjModel, substr: str) -> dict:

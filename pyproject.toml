@@ -33,6 +33,7 @@ cuda = ["jax[cuda12]>=0.9,<0.10"]
 pea-train = "pea.train:main"
 pea-rollout = "pea.rollout:main"
 pea-analyze = "pea.analyze:main"
+pea-sweep = "pea.experiment:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pea"]

@@ -22,8 +22,11 @@ The proposed study's individual ingredients are **all established prior art**,
 but their **specific conjunction appears unclaimed as of June 2026**:
 
 - *Parallel-elastic torque offloading cuts motor energy* — foundational
-  (Plooij & Wisse 2012: ~80% actuator energy, ~66% peak torque on a clutched
-  knee-extensor task).
+  (Plooij & Wisse 2012, clutched knee-extensor task). **[Figure DISPUTED:** an
+  adversarial re-check (2026-06-14) traces Plooij & Wisse 2012 IROS to ~20%
+  energy reduction on a 2-DOF arm, not the ~80%/66% quoted here — the 80% may
+  belong to a different clutched-PEA Plooij work. Verify the primary before
+  citing a number.**]**
 - *Torque-squared electrical (copper-loss) accounting for a PEA, validated on
   real hardware* — done, but on a **quadruped** (Bjelonic/ETH RA-L 2023, ANYmal).
 - *RL with elastic actuators for legged locomotion* — done, but on
@@ -63,7 +66,9 @@ lockable parallel-elastic knee prosthesis (Geeroms 2017) measured 65 J/stride /
 100 W peak vs 156 J/stride / 400 W direct-drive and 98 J/stride / 200 W SEA.
 
 **Clutched / selectively-engaged parallel springs** are the canonical
-energy-savers: Plooij & Wisse 2012 (~80% / 66% on a knee-extensor rebound rig);
+energy-savers: Plooij & Wisse 2012 (clutched knee-extensor rebound rig; the
+~80%/66% figure is DISPUTED — see §1, an adversarial re-check found ~20% on a
+2-DOF arm for the 2012 IROS paper);
 STEPPR (Sandia, IEEE TMech 2017) — the strongest *biped electrical* precedent —
 selectively-engaging parallel joint springs cut **joint electrical power** (hip
 ab/adduction −31% / 93 W; hip springs −13% overall robot power) **without RL**,

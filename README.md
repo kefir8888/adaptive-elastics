@@ -7,20 +7,45 @@ heat quadratically — if the gait can exploit it. MuJoCo end to end; metrics ar
 copper loss and cost of transport, not mechanical work. See `CLAUDE.md` for the
 full experiment design.
 
-## Current state (2026-06-13)
+## Current state (2026-06-14)
 
-Milestones 1–3 done (baseline trained, knee/hip logged, offline spring analysis).
-**Milestone 4 (in-loop comparison) is prepared and CPU-validated; it needs a GPU
-machine to run.** Full detail in `docs/PLAN.md`, `docs/RESULTS.md`, `docs/JOURNAL.md`
-(start here), `docs/mechanism.md`, `docs/related_work.md`.
+Milestones 1–3 done; the G1-walk in-loop gate is prepared (CPU-validated, needs GPU).
+Detail in `docs/JOURNAL.md` (start here), `RESULTS.md`, `PLAN.md`, `mechanism.md`,
+`related_work.md`, and the three docs written this session: **`directions.md`**
+(six-direction map), **`running_program.md`** (the next focus), **`taxonomy.md`**
+(cross-morphology study).
 
-Key decisions: spring target = **hip-pitch**, linear spring `k=68 N·m/rad,
-θ0=-0.29 rad` (`configs/spring_hip_linear.yaml`); matched no-spring
-(`configs/baseline_gate.yaml`). Reward and headline metric = **total electrical
-power** (mechanical + ohmic, no regeneration); we also report the Kt/R-independent
-ohmic-loss percentage and the cost of transport. Energy-weight placeholder
-`-2.5e-4`, to be fixed by calibration. Kt/R are estimates (no hardware), reported
-as a band.
+**Meaningful outcomes of the 2026-06-14 dialogue:**
+- **The G1-walk energy win is small and gear-limited.** With real-ish constants
+  ohmic is only ~4 % of the motor budget; the post-hoc hip-spring saves ~3 %
+  whole-body and **~0 % under regeneration** — the win is braking-energy recovery,
+  not the quadratic copper term.
+- **Torque-vs-speed resolved from the real Unitree specs** (jnt_actfrcrange + G1
+  URDF): **knee is SPEED-limited** (139 N·m / 20 rad/s), **hip is TORQUE-limited**
+  (88 N·m / 32 rad/s). So a parallel spring **cannot raise G1 jump height** (knee
+  speed-capped → series/low-gear for height); it helps **hip torque + efficiency/
+  landing**. The biped knee wants a constant-torque element, not a torsion spring.
+- **Two value axes:** efficiency (energy/CoT/ohmic) AND performance/durability
+  (peak power, jump/sprint, and **gearbox wear** = peak+RMS torque).
+- **Two validity confounds caught:** (1) the baseline policy *chatters* (a default-
+  zero `action_rate` penalty → ~55 % sawtooth) which inflates energy and dilutes
+  the spring %; fix = enable `action_rate`. (2) The baseline was **energy-naive** —
+  the spring must be measured against an **energy-AWARE** baseline, never the naive
+  walker. Both raise the bar for the gate.
+- **No-regeneration justified for the G1** (back-EMF below the bus at locomotion
+  speeds); exceptions exist (MIT Cheetah, reportedly Optimus); ~24 % sensitivity.
+- **Next focus: G1 running for EFFICIENCY** (`running_program.md`) — bigger braking
+  energy than walking, where the spring should pay more.
+- **Cross-morphology study mapped** (`taxonomy.md`): the spring's benefit **shifts
+  with gear** — energy at low gear (Berkeley 9:1, Go1/Barkour 6:1), wear at high
+  gear (Spot, ANYmal), G1 the middle. Biped → hip-pitch; quadruped → thigh+knee.
+  Kinematics: serial (Berkeley, H1) · parallel ankle (G1, Booster) · full parallel
+  (Cassie, DecART). A comprehensive study is **~£160–210** on ready Playground envs.
+
+Spring (walk gate): **hip-pitch** linear `k=68 N·m/rad, θ0=-0.29` vs matched no-spring.
+New tooling: `pea-sweep` (multi-joint, energy + wear), `metrics.{saturation,
+fit_linear_spring}`, the motor torque–speed envelope (`energy.G1_LIMITS/G1_JOINT_VEL`),
+and `configs/run_baseline.yaml` (the energy-aware, smooth runner).
 
 ### To run Milestone 4 on a GPU machine
 

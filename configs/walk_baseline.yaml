@@ -1,0 +1,25 @@
+# Energy-aware, SMOOTH walker baseline (no spring) — Milestone 1, the real control.
+# Replaces the energy-naive 2026-06-11 walker. Doubles as the matched no-spring
+# condition for the in-loop gate: the spring config reuses reward_scales +
+# energy_reward_weight IDENTICALLY, differing only in the spring block.
+name: walk_baseline
+env_name: G1JoystickFlatTerrain   # default walk command range [-1, 1] m/s
+seed: 1
+domain_randomization: true
+spring:
+  kind: none
+
+# reward_config.scales. The SMOOTHNESS TRIO was all 0.0 by default — that IS the
+# ~55%-reversal sawtooth that inflates the electrical bill and dilutes the spring's
+# measured benefit. action_rate is THE fix; dof_acc/torques are second-order.
+# Otherwise kept at Playground G1 walking defaults (no running-specific changes).
+reward_scales:
+  action_rate: -0.01    # *** primary anti-chatter fix (default 0.0) ***
+  dof_acc: -2.5e-7      # second-order smoothing (start tiny)
+  torques: -1.0e-4      # light torque regularisation (also lowers ohmic)
+
+# Total-electrical penalty (mechanical + ohmic, NO regen) — the quantity we evaluate.
+# PLACEHOLDER: set by the calibration sweep to ~7-12% of mean tracking reward.
+# Must be byte-identical in the spring condition. See docs/constants_registry.md.
+energy_reward_weight: -2.5e-4
+ppo: {}

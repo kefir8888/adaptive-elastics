@@ -4,11 +4,18 @@ Running record of experimental results, accumulating across milestones. Terse
 session notes live in `JOURNAL.md`; this file holds the numbers, methods, and
 caveats in enough detail to write up or reproduce later. Newest milestone last.
 
-Headline so far: a walking G1 baseline is trained and verified; the knee work
-loop is **offset-dominated, not stiffness-dominated**, which redirects the
-spring design from a torsion spring to a **preloaded constant-torque element**;
-the optimistic post-hoc bound is **−16.1 % total knee electrical energy** and
-**−41.5 % / −35.8 % knee copper loss** on the fixed baseline gait.
+Headline so far: a walking G1 baseline is trained and verified. The **knee** work
+loop is offset-dominated (a passive linear spring degenerates to k=0), so the
+spring target moved to the **hip-pitch** joint, where a buildable linear spring
+captures ~51–60 % of mean-square torque. Post-hoc bounds on the fixed baseline
+gait (optimistic): the knee constant element gave −16.1 % total knee electrical /
+−41.5 % / −35.8 % knee ohmic with placeholder constants; with the later
+**estimated** G1 constants the hip-pitch linear spring gives **−55 % hip-pitch
+ohmic** but only **−10.7 % hip-pitch total electrical** (≈ −2.9 % of whole-body
+motor electrical). Ohmic is ~4 % of the motor budget on this geared humanoid, so
+the total-electrical win is modest and concentrated at the hip — see the
+"Motor constants estimated" section. The in-loop gate (Milestone 4) is the
+credible test and is not yet run.
 
 ---
 
@@ -112,22 +119,38 @@ retraining (Milestone 4).**
 
 ---
 
-## Milestone 4 — In-loop retraining  ◻ ready, not yet run
+## Milestone 4 — In-loop GO/NO-GO gate (hip-pitch)  ◻ ready, not yet run
+
+Scope pivoted from the knee constant element to a **hip-pitch linear spring**
+(see Milestone 2: the knee work loop is offset-dominated, so a passive linear
+spring degenerates to k=0 there; the hip-pitch is the AC joint where a buildable
+linear spring captures ~51–60 % of mean-square torque). The knee constant
+−12 N·m element (`configs/spring_constant.yaml`) remains as the earlier
+post-hoc lead; it is superseded as the in-loop candidate.
 
 - **Spring injection implemented** (`SpringWrapper` in `src/pea/env.py`): adds
-  `τ_spring(θ)` at the knee DoFs through `qfrc_applied` (external generalized
-  force), *beside* the motors — deliberately not through the actuators, so
-  `qfrc_actuator` keeps meaning "motor torque" and the energy model stays
-  honest. Torque is sampled at the control boundary, held across substeps.
-  Delegates everything else, so Playground's brax training wrapper and jit/vmap
-  compose with it transparently.
-- **Verified under jit:** −12 N·m lands on both knee DoFs; a full CPU
-  smoke-train (`pea-train --config configs/spring_constant.yaml --smoke`)
-  passes end to end through the brax pipeline.
-- **To run:** one command on a fresh H100 box,
-  `pea-train --config configs/spring_constant.yaml --output_dir ~/runs`
-  (~1 h, ~350 ₽), then best-vs-best comparison against the baseline on cost of
-  transport and copper loss.
+  `τ_spring(θ)` at the target joint's DoFs (now **hip-pitch**, `cfg.spring.joint`)
+  through `qfrc_applied` (external generalized force), *beside* the motors —
+  deliberately not through the actuators, so `qfrc_actuator` keeps meaning "motor
+  torque" and the energy model stays honest. Torque is sampled at the control
+  boundary, held across substeps. Delegates everything else, so Playground's brax
+  training wrapper and jit/vmap compose with it transparently.
+- **Gate arms (matched, identical reward):** SPRING = `configs/spring_hip_linear.yaml`
+  (linear, **k = 68 N·m/rad, θ₀ = −0.29 rad**, the offline hip fit), NO-SPRING =
+  `configs/baseline_gate.yaml`. Both carry the same total-electrical penalty in
+  the reward (`energy_reward_weight`, placeholder −2.5e-4, to be fixed by the
+  calibration sweep). The linear spring is exactly the realizable dual-semi-
+  parabolic mechanism within its linear band (`docs/mechanism.md`).
+- **Verified under jit + CPU smoke-train:** the hip-pitch spring lands on both
+  hip-pitch DoFs and a full CPU smoke-train passes end to end through the brax
+  pipeline for both arms (`2026-06-13_spring_hip_linear_smoke`,
+  `2026-06-13_baseline_gate_smoke`).
+- **To run** (a fresh H100 box, see README "To run Milestone 4"): the calibration
+  sweep (`scripts/calib_sweep.sh`) to pick the energy weight `W`, then
+  `pea-train --config configs/spring_hip_linear.yaml --energy-weight=W` and
+  `pea-train --config configs/baseline_gate.yaml --energy-weight=W` (~1 h each,
+  ~350 ₽), then the best-vs-best comparison on ohmic loss, cost of transport, and
+  total electrical power.
 
 ---
 
@@ -157,6 +180,37 @@ work* under no-regeneration, not from ohmic. Two consequences:
 Framing: lead with the ohmic-% reduction (large, Kt/R-independent); report the
 total-electrical CoT reduction honestly as modest and assumption-sensitive.
 
+## Motor budget, actuation share, and direct N→M power (2026-06-14)
+
+Measured on the baseline trajectory (`scripts/motor_budget.py`,
+`power_compare.py`, `probe_speed_hold.py`), 10 s steady walk, estimated Kt/R,
+no-regen:
+
+- **Whole-body motor electrical ≈ 178 W**; mechanical ~96 %, **ohmic ~4 %** (69 J
+  of 1785 J). Per-joint share: right knee 20.6 %, left knee 16.1 %, **right
+  hip-pitch 13.8 %, left hip-pitch 13.5 % (both = 27.3 %)**, shoulders ~13 %.
+- **Direct N→M (hip-pitch linear spring, post-hoc, fixed gait):** hip-pitch
+  motors **48.7 → 43.5 W** (−5.2 W, −10.7 %); whole-body **178.5 → 173.3 W**
+  (−5.2 W, −2.9 %). All of it is hip-pitch (the post-hoc only touches those DoFs).
+- **No-regeneration tax:** with regen the bill is 135.5 W; no-regen is 178.5 W —
+  the **+43 W (+32 %)** gap is braking work dumped as heat. With the spring the
+  regen-view bill barely moves (135.5 → 135.6 W), so the entire 5.2 W saving is
+  braking recovery, **not** ohmic. The spring acts as a passive substitute for
+  regeneration; its win is as no-regen-dependent as that implies.
+- **Actuation share of total robot power** (research workflow): G1 battery 421 Wh
+  (~210 W mixed-use average); steady walking ~250–350 W (cf. Cassie ~300 W,
+  ANYmal ~280 W). House load (Jetson Orin NX 10–25 W + Livox 6.5 W + RealSense
+  ~2 W + standby) ≈ 40–50 W → **actuation ≈ 80–90 % while walking** (majority is
+  house load when standing). The spring's ~5 W motor saving is **~2 % of
+  whole-robot power**, ~0 % under regen.
+- **Speed/hold probes:** standing → walking-tuned spring saves ~0 W; faster
+  walking (1.23 m/s) → ohmic share flat ~3.8 %, braking 46→63 W, spring gain
+  5→6 W. Speed alone does not arm the copper lever; running needs its own policy.
+
+Strategic consequence: the six-direction map in **`docs/directions.md`** — TRY
+in-loop G1 → running G1/H1 → quadrupeds (zero-shot conditioned) → DecART; SKIP
+static manipulation.
+
 ## Open items / risks
 
 1. **Real G1 knee Kt, R** — needed before any absolute electrical % is
@@ -165,8 +219,20 @@ total-electrical CoT reduction honestly as modest and assumption-sensitive.
    torque helps in stance but fights the motor in swing and may hurt foot
    clearance. Visible in the data; only in-loop retraining (Milestone 4) reveals whether
    the gait can absorb it. (This is why some hardware PEAs add a clutch.)
-3. **No-regen assumption** — favourable to the spring by design; if the G1
-   actually regenerates, the negative-work win shrinks. Worth a sensitivity
-   pass.
+3. **No-regen assumption** — now JUSTIFIED for the G1 (back-EMF below the ~48 V bus
+   at locomotion speeds → no battery recovery without a boost converter the driver
+   lacks; documented regenerative-resistor pattern). NOT a verified spec; the spring's
+   entire win is this dissipated braking, so report the ~24 % regen-vs-no-regen
+   sensitivity. Exceptions: MIT Cheetah 2013, reportedly Tesla Optimus. See
+   `docs/running_program.md`. Gold standard: a hardware braking test.
 4. **Single baseline seed** — for a credible Milestone 4 result, train ≥2–3 seeds per
    arm so the comparison is best-vs-best, not single-sample.
+5. **Baseline is ENERGY-NAIVE (the key confound).** Every number above is measured
+   against the `2026-06-11` walker, trained with the energy term at ZERO — a policy
+   that never tried to save energy. The proper control is an **energy-aware baseline
+   (no spring, electrical penalty on)**, never trained. The spring's real value is
+   `CoT(energy-aware+spring) − CoT(energy-aware, no spring)`, not vs the naive walker;
+   an energy-aware policy will already trim torque (and likely self-de-chatter), so
+   these post-hoc %s are UPPER BOUNDS and the marginal in-loop number could be
+   smaller. Train the energy-aware baseline FIRST (see `docs/running_program.md`
+   Milestone 1b).

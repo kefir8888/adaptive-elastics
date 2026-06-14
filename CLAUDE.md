@@ -1,8 +1,13 @@
 # CLAUDE.md — Parallel-Elastic Knee Efficiency Study
 
 ## Project goal
-Test whether adding a tunable **parallel elastic** spring at the knee of a humanoid
-(Unitree G1) reduces the *electrical* energy of walking, by offloading motor torque.
+Two parts, **in sequence — finish Part 1 before starting Part 2.**
+
+### Part 1 — Energy efficiency (current focus)
+Test whether adding a tunable **parallel elastic** spring (target now **hip-pitch**,
+not the knee — see `docs/RESULTS.md`) on a humanoid (Unitree G1) reduces the
+*electrical* energy of walking, by offloading motor torque. Headline metric: cost
+of transport / total electrical power.
 
 Mechanism / why this should work:
 - Motor copper loss scales with torque squared: `P_loss ≈ (τ/Kt)² · R`. Offloading
@@ -12,6 +17,47 @@ Mechanism / why this should work:
 - **Parallel**, not series: the goal is torque offloading, not force control. A parallel
   spring sits beside the motor and avoids the large-force-bandwidth penalty of series
   compliance.
+- *Reality check (this study's main finding so far):* the G1 is high-geared (22.5:1),
+  so ohmic loss is only ~4 % of the motor budget and the walking saving is modest
+  (~3 % whole-body, ~0 % under regeneration). The efficiency win is gear-limited.
+  Full direction map and decisions in `docs/directions.md`.
+
+### Part 2 — Explosive moves (after Part 1)
+Test whether the **same adaptive elastic** helps EXPLOSIVE moves: vertical **jump
+height**, broad-**jump distance**, **drop-landing** (jumping down), explosive
+**sprint** start. Unlike Part 1 these may be **one-shot** (a single max jump — no
+cross-cycle energy recovery, cost-of-transport does not apply) or **repetitive**
+(continuous hopping — recovery applies). This is a genuine **bifurcation** from
+Part 1 (repetitive-motion efficiency); see `docs/directions.md`. Part 2 itself
+splits into two sub-cases with opposite verdicts on the high-geared G1:
+- **(B1) Performance — jump HEIGHT / top speed.** Which architecture helps is set
+  ENTIRELY by which wall takeoff hits, because a **series** spring can never add
+  torque (force through it equals the motor force; it only amplifies *speed/power*
+  by storing energy then releasing it fast) and a **parallel** spring can never
+  beat the speed wall (it only adds *force*). So: **torque-limited takeoff →
+  parallel helps; speed-limited takeoff → series helps and parallel does nothing.**
+  **RESOLVED from the real specs** (model jnt_actfrcrange + Unitree G1 URDF velocity
+  limits): the **knee is SPEED-limited** (139 N·m but only **20 rad/s**, and the
+  walker already uses ~52–67 % of that speed; a jump needs the knee faster still),
+  while the **hip is TORQUE-limited** (88 N·m, only ~11 % of its 32 rad/s). Since
+  the knee is the jump extensor and it is speed-capped, **a parallel spring cannot
+  raise G1 jump HEIGHT** — height points off the G1 (series compliance or a low-gear
+  platform). The hip-torque case and the efficiency/landing case (B2) remain valid
+  for a parallel spring. (Confirm with a max-jump policy; the walking data already
+  pins the knee near its speed ceiling.)
+- **(B2) Efficiency / peak-load of explosive moves — the defensible parallel case,
+  LEAD with this.** Even with height capped, the spring cuts the **energy and peak
+  load** of each push-off and landing. Parallel is the correct architecture here,
+  and the gear speed-cap does NOT apply to **landing** (load is set by impact
+  velocity, not motor speed). Jump/landing torques (≥139 N·m) dwarf walking, so the
+  ohmic (∝ τ²) and braking-recovery channels are far larger than the ~3 % walking
+  lever — this is where the spring most plausibly pays on the stock G1.
+
+Metric: performance (height/distance, takeoff velocity, top speed, peak power) for
+B1; energy + peak load for B2. The tunable spring + dead-zone clutch is the
+between-conditions knob (engage for explosive, disengage for precise/efficient).
+Gearing is the crux for BOTH parts; maximum jump HEIGHT may point off the G1 (a
+low-gear quadruped or a DecART-style leg-length / series element).
 
 ## Session ritual
 Project memory lives on disk, not in any single conversation. Work in short, task-scoped
@@ -33,9 +79,13 @@ sessions and start fresh ones freely (a new session reloads this file automatica
 ## Metrics — measure ELECTRICAL energy, not mechanical work
 - Copper loss `P = (τ/Kt)² · R`. Need approximate motor constants (Kt, R) for the G1
   actuators; approximate is fine for a *relative* comparison.
-- Decide whether negative work is recovered (regen) or dissipated. Assume **dissipated**
-  unless the G1 actually regenerates — the spring wins precisely where the motor would
-  otherwise burn negative work as heat.
+- Negative work is **dissipated, not regenerated** (no-regen) — JUSTIFIED for the G1
+  by back-EMF physics (at locomotion joint speeds the back-EMF is below the ~48 V bus,
+  so returning current needs a boost converter commercial drivers lack) + the
+  documented regenerative-resistor pattern. NOT a verified spec; exceptions exist (MIT
+  Cheetah 2013, reportedly Tesla Optimus). The spring's win lives precisely in this
+  dissipated braking, so it is **no-regen-dependent** — report the ~24 % regen-vs-no-regen
+  sensitivity. Full treatment: `docs/running_program.md`.
 - Headline metric: **cost of transport (CoT)**. Report % reduction in CoT and copper loss.
 
 ## Tech stack
