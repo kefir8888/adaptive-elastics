@@ -84,6 +84,6 @@ def at_payload(P):
           f"mean|calf_mot| {ctau:5.1f}{extra}", flush=True)
 
 
-for P in [0, 5, 10, 15, 20, 25]:
+for P in [0, 2.5, 5, 7.5, 10, 12.5, 15]:   # 0-10 in-distribution + 12.5/15 OOD (baseline degrades first)
     at_payload(P)
 print("CAPACITY_DONE")

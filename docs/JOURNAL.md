@@ -20,14 +20,23 @@ happened, what's open/broken, and the single next step.
   forward walking. DIAGNOSED cleanly: the ORIGINAL Go1 walker runs **0.97 m/s through the SAME
   script** → pin/script/mechanism all fine; only the payload-DR policy is broken. (tracking_lin_vel
   reward is high, 367.5, because the env evals on *random* commands; a *constant forward* command → stand.)
-- **FIX (needs tuning, tomorrow):** retrain with a NARROWER, walkable payload range (~0–6 to 0–10 kg;
-  Go1 realistic max ~11 kg) and/or a higher tracking-reward weight / payload curriculum / forward-biased
-  command. Note the "capacity ceiling" is *stops walking*, not *falls* (the robot stands at 25 kg).
-- **Safe (local + committed):** `PreloadDRWrapper`, `spring_go1_adaptive*.yaml`,
-  `go1_baseline_payload*.yaml`, `scripts/go1_capacity.py` (unified eval w/ speed). Baseline + adaptive
-  policies in `outputs/runs/`. Box halted → auto-deleted.
-- **RESUME:** retrain Go1 payload baseline + adaptive at 0–6/0–10 kg tuned for forward walking → re-run
-  the capacity curves → the energy-vs-load + walk-forward-capacity headline.
+- **ROOT CAUSE CONFIRMED + energy penalty RULED OUT:** the reward decomposition shows
+  `energy_reward_weight` is identical (−1e-4) in the walking and the standing policy → not the
+  energy penalty. The only config diff is `payload_max_kg` (0 vs 25), and `tracking_lin_vel`
+  collapses **925 → 367** (std 296, bimodal: half-tracks, half-stands). The unwalkable >12 kg tail
+  (above body mass) is what taught it to stand. Note the "capacity ceiling" is *stops walking*, not *falls*.
+- **FIX PREPARED (one-command retrain ready):** configs now set to **payload 0–10 kg** (< body mass,
+  realistic Go1 box max; the prior 0–25 kg tail removed): `go1_baseline_payload.yaml`,
+  `spring_go1_adaptive.yaml` (tau0 15→12, matched to 0–10 kg loads), + the `_s2` variants.
+  `go1_capacity.py` sweep → [0, 2.5, 5, 7.5, 10, 12.5, 15] (in-dist + slight OOD).
+- **Safe (local + committed):** `PreloadDRWrapper`, the `*_payload*`/`*adaptive*` configs,
+  `scripts/go1_capacity.py` (unified eval w/ speed). Baseline + adaptive policies in `outputs/runs/`.
+  Box halted → auto-deleted.
+- **RESUME (next session, 1 GPU box):** (1) retrain `go1_baseline_payload` + `spring_go1_adaptive` at
+  0–10 kg, **gate on `eval/episode_reward/tracking_lin_vel` >~800** (collapse toward ~370 ⇒ drop to 6 kg
+  / add a payload curriculum); (2) re-run `go1_capacity.py` — must show speed ~0.8–1.0 m/s now; (3) headline
+  = energy-vs-load curve (baseline vs adaptive preload) + the per-leg τ₀-vs-load curve (already validated);
+  (4) Phase B: 2nd seed + rough terrain. Sync every run; halt → auto-delete.
 
 ## 2026-06-15 — Box deleted (budget stopped); RESUME PLAN for the load study
 - **State:** H100 halted+auto-deleted. Payload-baseline POLICY lost (not synced in time) but

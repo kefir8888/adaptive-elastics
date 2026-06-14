@@ -28,15 +28,22 @@ the boundary map + the capability framing.
 ## Design (locked with the user)
 - **Blind controller** — the RL policy does NOT observe the payload (a dog can't read the
   box mass). One policy, load-robust.
-- **Payload domain randomization from the start, NO curriculum** — a box of **+U(0, 25) kg**
-  on the trunk each episode (~0 to 2× body mass), fixed within an episode, resampled per
-  reset (no within-episode ramp). Implemented by widening the Go1 randomizer's torso-mass
-  term: `src/pea/payload.py`, `cfg.payload_max_kg` (train.py uses it when > 0).
-- **Terrain:** FLAT first (clean payload-capacity + energy curve); rough terrain
-  (`Go1JoystickRoughTerrain`) next as robustness, with a *mild terrain curriculum only if it
-  struggles*. Skip stairs + gravel.
-- **Push payload to FAILURE** — range deliberately beyond the realistic ~11 kg, so the
-  baseline fails at the top and the preload's capacity-extension shows.
+- **Payload domain randomization from the start** — a box of **+U(0, 10) kg** on the trunk
+  each episode (≤ body mass ~12 kg; realistic Go1 box max), fixed within an episode, resampled
+  per reset. Implemented by widening the Go1 randomizer's torso-mass term: `src/pea/payload.py`,
+  `cfg.payload_max_kg` (train.py uses it when > 0).
+  - **RANGE LESSON (2026-06-15):** an initial **0–25 kg** range (~2× body mass) COLLAPSED the
+    blind policy to **standing** — `tracking_lin_vel` reward fell **925 → 367**; the policy walks
+    at ~0 m/s at every commanded speed. The >12 kg tail is physically unwalkable, so the policy
+    learned standing as the dominant behavior and it carried over to light loads. Energy penalty
+    ruled out (identical −1e-4 in the walking original). **Keep the range walkable (≤ body mass)
+    and gate the retrain on `tracking_lin_vel >~800`**; if it still collapses, drop to 0–6 kg or add
+    a payload curriculum (ramp the max over training so it masters walking before load).
+- **Terrain:** FLAT first (clean energy-vs-load curve); rough terrain (`Go1JoystickRoughTerrain`)
+  next as robustness, with a *mild terrain curriculum only if it struggles*. Skip stairs + gravel.
+- **The "capacity ceiling" is *stops walking*, not *falls over*** — at heavy load the Go1 stands
+  stably (does not fall). So the headline is the **energy-vs-load curve** (the preload cuts ohmic
+  power at each load); a walk-forward-capacity ceiling is a secondary OOD probe (eval past 10 kg).
 - **Matched:** baseline (no spring) and spring (adaptive preload) train identically under the
   same payload DR; the ONLY difference is the preload.
 

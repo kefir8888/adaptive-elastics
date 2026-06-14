@@ -1,18 +1,20 @@
 # Go1 baseline (no spring) with PAYLOAD domain randomization — the load-robust control.
-# A box of +U(0, 25) kg on the trunk each episode (~0 to 2x body mass); the controller is
-# BLIND to it (no payload obs — real-world realism). FLAT terrain first, for a clean
-# payload-capacity + energy curve; rough terrain is the next robustness run.
+# A box of +U(0, 10) kg on the trunk each episode; the controller is BLIND to it (no payload
+# obs — real-world realism). FLAT terrain first, for a clean energy-vs-load curve.
 #
-# Pushing payload to ~25 kg is intentional: we want to find where the baseline FAILS to
-# walk (knee support torque hits the motor ceiling), so the constant knee preload's
-# load-compensation shows up as EXTENDED carry-capacity, not just lower energy.
+# RANGE LESSON (2026-06-15): an earlier 0-25 kg range (up to 2x body mass) COLLAPSED the policy
+# to standing (tracking_lin_vel 925 -> 367) — the >12 kg tail is unwalkable, so the policy
+# learned to stand everywhere. Capped at 10 kg (< body mass ~12 kg, realistic Go1 box max) so
+# every episode is walkable. Watch tracking_lin_vel during training: it must stay ~>800 (a
+# collapse toward ~370 means the range is still too hard -> drop to 6 kg / use a curriculum).
+# The capacity "ceiling" here is "stops walking", not "falls over".
 #
 # Matched control for the spring run (same DR, differ ONLY by the knee preload).
 name: go1_baseline_payload
 env_name: Go1JoystickFlatTerrain
 seed: 1
 domain_randomization: true
-payload_max_kg: 25.0
+payload_max_kg: 10.0
 spring:
   kind: none
 energy_reward_weight: -1.0e-4

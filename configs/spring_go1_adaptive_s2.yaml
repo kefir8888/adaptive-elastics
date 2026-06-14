@@ -4,11 +4,11 @@ name: spring_go1_adaptive
 env_name: Go1JoystickFlatTerrain
 seed: 2
 domain_randomization: true
-payload_max_kg: 25.0
+payload_max_kg: 10.0
 spring:
   kind: preload_dr
   joint: calf
-  tau0: 15.0
+  tau0: 12.0
 energy_reward_weight: -1.0e-4
 energy_motor: go1_knee
 ppo: {}

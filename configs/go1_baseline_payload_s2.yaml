@@ -4,7 +4,7 @@ name: go1_baseline_payload
 env_name: Go1JoystickFlatTerrain
 seed: 2
 domain_randomization: true
-payload_max_kg: 25.0
+payload_max_kg: 10.0
 spring:
   kind: none
 energy_reward_weight: -1.0e-4
