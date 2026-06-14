@@ -1,0 +1,21 @@
+# Go1 quadruped baseline (no spring) — the LOW-GEAR (6.33:1) track where the ohmic
+# (tau^2 * R) lever is actually armed: go1_knee R/Kt^2 ~ 0.29 vs the G1's 0.0025
+# (~120x). On the G1 ohmic was ~4% of the budget (gear-killed); here it should be a
+# large fraction, so offloading knee torque to a spring can cut real heat.
+#
+# Doubles as the matched no-spring control for the 4-knee in-loop spring run
+# (spring_go1.yaml), which reuses everything here and only adds the spring block.
+# Keeps the Go1 env's native reward (already has action_rate=-0.01 / torques / a
+# built-in mechanical energy term); our TOTAL-ELECTRICAL wrapper (go1_knee Kt/R)
+# adds the ohmic channel on top, IDENTICAL in both arms.
+name: go1_baseline
+env_name: Go1JoystickFlatTerrain
+seed: 1
+domain_randomization: true
+spring:
+  kind: none
+# small electrical penalty (the Go1 native reward already keeps it energy-aware);
+# MUST be byte-identical in spring_go1.yaml. go1_knee = low-gear constants.
+energy_reward_weight: -1.0e-4
+energy_motor: go1_knee
+ppo: {}

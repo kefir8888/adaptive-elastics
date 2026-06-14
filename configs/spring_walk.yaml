@@ -1,0 +1,24 @@
+# Energy-aware, SMOOTH walker WITH a parallel hip-pitch linear spring — the in-loop
+# SPRING condition for the gate. IDENTICAL to walk_baseline.yaml (seed, reward_scales,
+# energy penalty) EXCEPT the spring block, so baseline-vs-spring isolates the spring.
+# Spring fit post-hoc to the full200 energy-aware baseline gait (2026-06-14):
+#   k = 66.36 N*m/rad, theta0 = -0.273 rad  (k>=0 linear fit, R^2 = 0.57) —
+#   ~identical to the older k=68/-0.29 fit, confirming a stable hip-pitch work loop.
+# Trained by RESTORING the SAME calib_-5e-4 80M checkpoint as the baseline, +120M,
+# so both arms share an identical 80M no-spring init and differ only in the last 120M.
+name: spring_walk
+env_name: G1JoystickFlatTerrain
+seed: 1
+domain_randomization: true
+spring:
+  kind: linear
+  joint: hip_pitch
+  k: 66.36       # N*m/rad
+  theta0: -0.273  # rad
+reward_scales:
+  action_rate: -0.01    # primary anti-chatter fix (matches walk_baseline.yaml)
+  dof_acc: -2.5e-7
+  torques: -1.0e-4
+# Total-electrical penalty — MUST match walk_baseline run (-5e-4 via --energy-weight).
+energy_reward_weight: -5.0e-4
+ppo: {}

@@ -1,6 +1,6 @@
 # adaptive-elastics
 
-Does a tunable **parallel elastic spring at the knee** reduce the *electrical*
+Does a tunable **parallel elastic spring** (hip-pitch target, moved from the knee) reduce the *electrical*
 energy of walking for a Unitree G1 humanoid? Motor copper loss scales with
 torque squared (`P ≈ (τ/Kt)²·R`), so offloading torque to a passive spring cuts
 heat quadratically — if the gait can exploit it. MuJoCo end to end; metrics are
@@ -9,11 +9,15 @@ full experiment design.
 
 ## Current state (2026-06-14)
 
-Milestones 1–3 done; the G1-walk in-loop gate is prepared (CPU-validated, needs GPU).
+Milestones 1–3 done; the G1-walk in-loop gate is **run — and NEGATIVE**: the in-loop
+hip-pitch spring is ~7% worse and less stable, *reversing* the post-hoc −3.8%. Full
+catalog in **`docs/negative_results.md`**. Go1 quadruped (low-gear) track now running.
 Detail in `docs/JOURNAL.md` (start here), `RESULTS.md`, `PLAN.md`, `mechanism.md`,
 `related_work.md`, and the three docs written this session: **`directions.md`**
 (six-direction map), **`running_program.md`** (the next focus), **`taxonomy.md`**
-(cross-morphology study).
+(cross-morphology study), and **`negative_results.md`** (the catalogued negative/null
+results — the study's headline output), and **`load_program.md`** (the active direction:
+quadruped load-carrying + the adaptive self-tuning knee preload).
 
 **Meaningful outcomes of the 2026-06-14 dialogue:**
 - **The G1-walk energy win is small and gear-limited.** With real-ish constants

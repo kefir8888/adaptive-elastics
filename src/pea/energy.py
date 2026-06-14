@@ -9,11 +9,20 @@ power is dissipated, so consumed power is max(P_elec, 0) when regen=False.
 The spring wins precisely in those phases, so the regen assumption matters —
 default is NO regen (assumed dissipated) per CLAUDE.md.
 
-Motor constants are PLACEHOLDERS — order-of-magnitude values for a quasi-
-direct-drive knee actuator, expressed at the JOINT side (Kt_joint = Kt_motor *
-gear ratio; R is winding resistance). Absolute watts are not trustworthy;
-baseline-vs-spring comparisons with identical constants are. Confirm against
-real Unitree G1 actuator data before publishing energy numbers (Milestone 3).
+Motor constants are gear-scaled ESTIMATES (not order-of-magnitude placeholders):
+joint-side Kt ~= 2.3 N*m/A, R ~= 0.013 Ohm, load-bearing R/Kt^2 ~= 0.0025 (see
+G1_KNEE below and docs/g1_motor_constants.md). No external G1 datasheet exists, so
+absolute watts are a BAND not a point; the baseline-vs-spring comparison at identical
+constants is Kt/R-invariant and is the trustworthy output.
+
+SCOPE: models copper (ohmic) loss + mechanical power only. It OMITS iron (core) loss
+(hysteresis + eddy-current), which grows with motor SPEED, not torque. A parallel
+spring offloads TORQUE, so it cannot cut iron loss; adding iron loss would enlarge the
+total-power denominator while leaving the spring's saving unchanged -- so our % savings
+IGNORE a loss channel that would only dilute them (a conservative, one-sided bias). On
+the high-geared G1 the motor turns ~gear x joint speed, so iron loss is not negligible
+at the motor; we lack the 7520 core-loss coefficients to quantify it. Cf. arXiv:2506.12314
+(copper + iron + mechanical decomposition).
 """
 
 from __future__ import annotations
@@ -54,6 +63,10 @@ G1_KNEE = MotorConstants(kt=2.3, r=0.013)
 MOTORS: dict[str, MotorConstants] = {
     "g1": G1_KNEE,                          # 7520-22.5, hip-pitch/knee
     "go2": MotorConstants(kt=0.26, r=0.30),  # PLACEHOLDER R — confirm before use
+    # Go1 GO-M8010-6 calf (knee): Kt datasheet joint-side (~0.64 at 6.33:1); R an
+    # estimate (winding unpublished, ~0.05-0.3) -> R/Kt^2 ~ 0.29, ~120x the geared
+    # G1 (0.0025). LOW gear ARMS the ohmic (tau^2) lever — the point of this track.
+    "go1_knee": MotorConstants(kt=0.64, r=0.12),
 }
 
 
@@ -85,13 +98,13 @@ class MotorLimits:
 # `jnt_actfrcrange`, which MuJoCo ENFORCES (jnt_actfrclimited=True): knee ±139 N*m,
 # hip-pitch/yaw ±88, ankle-pitch ±50. So the sim already caps torque (a max jump is
 # torque-limited at these). What the model LACKS is the velocity rolloff (back-EMF):
-# `omega_noload` is still unknown — a 2026-06-14 web chase found NO Unitree datasheet
-# value (it circled back to our own estimates), and the menagerie carries no joint
-# velocity limit. omega_noload=25 rad/s is a PLACEHOLDER (the sim knee already reaches
-# ~13.4 rad/s walking, so the true ceiling exceeds that); it is the decisive unknown
-# for whether a REAL jump is torque- or speed-limited. Next lead: the Unitree G1 URDF
-# (`<limit velocity=>`) on GitHub, or a motor spin-down test. metrics.saturation()
-# reads the real per-joint torque cap from the model and pairs it with this estimate.
+# `omega_noload` was RESOLVED on 2026-06-14 from the official Unitree G1 URDF (see
+# G1_JOINT_VEL below): the knee ceiling is 20 rad/s. The earlier omega_noload=25 rad/s
+# was a placeholder, now superseded — NO Unitree *datasheet* value exists, but the URDF
+# `<limit velocity=>` is authoritative. The sim knee already reaches ~13.4 rad/s just
+# walking (~67% of 20), which is what makes a max jump SPEED-limited at the knee.
+# metrics.saturation() reads the real per-joint torque cap from the model and pairs it
+# with these URDF velocity limits.
 # Per-joint max angular velocity (rad/s) — AUTHORITATIVE from the official Unitree
 # G1 URDF (unitreerobotics/unitree_ros, g1_23dof.urdf, <limit velocity=>), fetched
 # 2026-06-14. Its effort limits match the model's jnt_actfrcrange (knee 139, hip 88).

@@ -1,4 +1,4 @@
-# CLAUDE.md — Parallel-Elastic Knee Efficiency Study
+# CLAUDE.md — Parallel-Elastic Efficiency Study
 
 ## Project goal
 Two parts, **in sequence — finish Part 1 before starting Part 2.**
@@ -17,10 +17,15 @@ Mechanism / why this should work:
 - **Parallel**, not series: the goal is torque offloading, not force control. A parallel
   spring sits beside the motor and avoids the large-force-bandwidth penalty of series
   compliance.
-- *Reality check (this study's main finding so far):* the G1 is high-geared (22.5:1),
-  so ohmic loss is only ~4 % of the motor budget and the walking saving is modest
-  (~3 % whole-body, ~0 % under regeneration). The efficiency win is gear-limited.
-  Full direction map and decisions in `docs/directions.md`.
+- *Reality check — the study's MAIN FINDING (2026-06-14/15): **gearing is the crux**.*
+  On the high-geared G1 (22.5:1) ohmic is only ~4 % of the budget, and the **in-loop**
+  spring is actually **WORSE** for walking (+7 %, reversing the optimistic post-hoc −3.8 %;
+  the always-on spring fights the gait, no clutch) — **nine negative results** in
+  `docs/negative_results.md`. But on the **LOW-gear Go1 quadruped** (6.33:1, ohmic **54 %**)
+  a **CONSTANT knee preload** cuts **−17 to −20 % in-loop with no stability cost** (2 seeds)
+  — the one positive result. **ACTIVE direction:** the **Go1 load-carrying program** — an
+  adaptive *per-leg* knee preload that scales with payload, one blind load-robust controller;
+  see **`docs/load_program.md`**. Direction map: `docs/directions.md`.
 
 ### Part 2 — Explosive moves (after Part 1)
 Test whether the **same adaptive elastic** helps EXPLOSIVE moves: vertical **jump
@@ -107,7 +112,7 @@ sessions and start fresh ones freely (a new session reloads this file automatica
   - `energy.py` (copper-loss model + cost of transport)
   - `policy.py` (network def + load/save), `config.py`
 - `scripts/` — `train.py` (Colab), `rollout.py` (local), `analyze.py` (local)
-- `configs/` — `baseline.yaml`, `spring_linear.yaml`, `spring_nonlinear.yaml`
+- `configs/` — no-spring (`baseline.yaml`, `walk_baseline.yaml`) + spring arms (`spring_hip_linear.yaml`, `spring_linear.yaml`, `spring_constant.yaml`, `spring_semiparabolic.yaml`)
 - `notebooks/colab_train.ipynb` — thin runner: pip-install repo, mount Drive, call train.py
 - `outputs/` — gitignored; one folder per run (config, checkpoint, metrics, trajectory)
 

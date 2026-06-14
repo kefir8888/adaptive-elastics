@@ -1,4 +1,4 @@
-# Project Journal — Parallel-Elastic Knee Efficiency Study
+# Project Journal — Parallel-Elastic Efficiency Study
 
 Append a short dated entry at the **end of each work session** (newest at the top).
 Keep entries terse — this is a memory aid for future sessions, not documentation.
@@ -7,6 +7,76 @@ For each entry note: what you did, what you decided (and why), key numbers if a 
 happened, what's open/broken, and the single next step.
 
 ---
+
+## 2026-06-15 — Box deleted (budget stopped); RESUME PLAN for the load study
+- **State:** H100 halted+auto-deleted. Payload-baseline POLICY lost (not synced in time) but
+  reproducible from `configs/go1_baseline_payload.yaml` (~14 min). All code/configs/docs/results
+  (Go1 −16.7%/−19.7% positive, videos, plots) are LOCAL and safe. **Lesson: sync after EVERY run.**
+- **Design settled (see `docs/load_program.md`):** per-leg (4×) preloads; adaptive controller =
+  per-knee clipped-proportional integral, `τ̇₀=clip(0.2·ē, ±2 N·m/s)`, ē=15s-EMA motor knee
+  torque, ē_target≈0 (full comp); train robust to preload via DR, run the controller at eval;
+  almost-constant coil (low-k pre-wound) is the buildable element.
+- **RESUME CHECKLIST:**
+  - [ ] Fresh box + bootstrap (~10m); push code (~2m); re-train payload baseline (~14m)
+  - [ ] Build adaptive controller — per-leg, OFFLINE/no-box (~30–45m)
+  - [ ] Wire per-leg preload DR (τ₀ 4-vector) (~15m)
+  - [ ] Baseline capacity sweep 0→25kg (~10m); train adaptive spring (~20–25m); spring capacity
+        + energy-vs-load curves (~15–20m); headline curve + box-carry video + doc (~25m)
+  - [ ] Phase B: rough terrain + payload (~45m); 2nd seed (~40m)
+  - [ ] Sync continuously; halt → auto-delete
+
+## 2026-06-14 (night, cont.) — Quadruped LOAD program designed + payload baseline launched
+- **Direction:** Go1 carrying variable payloads + a **self-tuning knee preload**. Full design
+  + numbers in **`docs/load_program.md`**.
+- **Adaptation mechanism (user's):** measure mean knee torque over ~15 s (no load sensor;
+  controller BLIND to mass) → integral-ramp the passive preload τ₀ at **≤1–2 N·m/s** to
+  offload the support component (slow outer loop, time-scale separated from the 50 Hz policy).
+- **Expected knee torques:** mean calf 4.6 N·m (no load) → ~14 (25 kg); preload ~3.5 → ~11,
+  all under the 45 N·m calf limit. Dynamic peaks approach 45 at heavy load → baseline fails,
+  preload rescues → **CAPABILITY** (extend carry-capacity), not just energy.
+- **Triviality (user's worry):** the bare "offload the loaded joint" is simple; the
+  contribution is (a) the boundary (it REVERSES on the high-gear G1), (b) element kind
+  (constant not linear), (c) the adaptive self-tuning preload, (d) the capability claim.
+- **Did:** wired payload DR (`src/pea/payload.py`, `cfg.payload_max_kg`, `train.py`); launched
+  flat+payload baseline (0–25 kg, blind, 300 M). Box up. Robots: Go1 now, others later.
+- **Next:** build the adaptive-preload spring run → payload-capacity + energy-vs-load curves.
+
+## 2026-06-14 (night) — Go1 quadruped: parallel elasticity PAYS (the one positive result)
+- **Result:** Go1 (low gear 6.33:1), constant preload at all 4 knees (calf, τ₀=3.5 N·m),
+  in-loop **153.4 → 127.8 W = −16.7% whole-body electrical, 4/4 stochastic survival** (no
+  stability cost). Post-hoc was −14.9%; in-loop HELD/IMPROVED it (vs the G1's reversal).
+- **Why it works:** ohmic is **54%** of the Go1 budget (vs G1's 4%) → τ² lever armed; the
+  calf is offset-dominated (linear null; Belov/Osokin τ²-fit gives k=−12.8 anti-restoring →
+  not passive) so a CONSTANT preload is the buildable optimum; a constant offload is
+  gait-compatible (no swing-phase fighting) so in-loop *beats* post-hoc.
+- **Robustness:** CONFIRMED across 2 seeds — seed-1 −16.7% (153.4→127.8 W), seed-2 −19.7%
+  (154.4→123.9 W), both 4/4 stochastic survival. Not a fluke.
+- **Did:** wired Go1 (`Go1JoystickFlatTerrain`, `go1_knee` Kt=0.64/R=0.12, calf preload,
+  parameterized the energy wrapper via `cfg.energy_motor`), gate + work-loop plot
+  (`outputs/plots/go1_calf_work_loops.png`) + 4 videos (`outputs/videos/`). Box up.
+- **Next direction (user):** quadruped + **LOAD** program — tunable knee preload scaling with
+  payload, a single load-robust controller; dogs = Go1/Go2/Barkour/Spot(high-gear control)/
+  ANYmal/big-Unitree (B1/B2). Est. ~1.5 GPU-hr + setup per robot.
+
+## 2026-06-14 (late) — G1 in-loop spring: NEGATIVE, and catalogued
+- **Result:** the in-loop hip-pitch spring (matched retrain: same 80M init, +120M, same
+  −5e-4 weight, differ only by the spring) makes G1 walking **+7.4% WORSE** (151.6→162.8 W,
+  CoT +8.4%, survival 3/4 vs 4/4) — **reversing** the post-hoc **−3.84%**. Robust: a
+  fresh-from-scratch spring is no better; a 2×2 cross-condition confirms retraining
+  adapts (spring policy beats spring-blind one), so it's a REAL effect, not a bug. The
+  spring absorbs hip-pitch braking (9.8→4.0 W) but the motor fights it in the drive phase.
+- **Catalogued all negatives → `docs/negative_results.md`** (NR-1 knee linear degenerate;
+  NR-2 hip in-loop reversal; NR-3 post-hoc WRONG-SIGN; NR-4 ohmic ~4% gear-killed; NR-5
+  win is no-regen-only; NR-6 energy weight not a lever; NR-7 jump height off-G1; NR-8
+  clutch can't gate running; NR-9 mechanism not novel).
+- **Decided:** parallel elastics don't pay for G1 walking. A per-stride clutch could help
+  WALKING (~1 Hz feasible) but NOT running (stance ~100 ms, no clutch that fast) → running
+  wants SERIES, not parallel+clutch.
+- **Did:** wired the Go1 quadruped track (low gear 6.33:1, go1_knee R/Kt²~0.29 ≈120×G1):
+  `go1_knee` constants, parameterized the energy wrapper (`cfg.energy_motor`),
+  `configs/go1_baseline.yaml`. Go1 baseline training now.
+- **Next step:** when Go1 baseline lands → roll out → fit calf (knee) work-loop spring →
+  in-loop springs in all 4 knees → compare. Box still up.
 
 ## 2026-06-14 (eve) — Running-efficiency program launched
 - **Decided (running program, `docs/running_program.md`):** next task = G1 **running

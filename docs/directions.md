@@ -134,7 +134,7 @@ BirdBot: parallel + tunable + RL + electrical on a commercial humanoid.
 
 ### 3 · Low-gear humanoid — TRY, qualified
 Physics is sound (8–10:1 → ohmic ~25–35 % → ~8–17 % achievable), but the truly
-low-gear humanoids are **research platforms, not products**: Berkeley Humanoid /
+low-gear humanoids are **research platforms, not products**: Berkeley Humanoid (9:1),
 HECTOR (9.1:1), MIT Humanoid, NING (10:1). Per the project owner: Berkeley
 Humanoid is fast and hard to break, **not** built for thermal efficiency — so it
 is a research-platform comparison, not a product story. The G1 (22.5:1) is
@@ -221,7 +221,8 @@ within a stride the element is passive.
 |---|---|---|---|
 | LOW (copper-loss-dominated, lever armed) | MIT Cheetah 2 / 3 | 5.8:1 / 7.67:1 | QDD planetary |
 | | MIT Mini-Cheetah, Unitree Go1/Go2 | 6:1 / 6.33 / 6.22:1 | QDD |
-| | Berkeley Humanoid / HECTOR | 9.1:1 | QDD planetary |
+| | Berkeley Humanoid | 9:1 | QDD planetary |
+| | HECTOR | 9.1:1 | QDD planetary |
 | | NING humanoid | 10:1 | planetary |
 | | 1X Neo / Eve | ~direct-drive (tendon) | near-gearless |
 | MID | **Unitree G1 (knee, hip-pitch)** | **22.5:1** (hip-yaw 14.3, ankle 5020) | QDD |

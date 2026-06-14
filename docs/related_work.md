@@ -130,7 +130,9 @@ post-hoc-vs-in-loop contrast. No surveyed work occupies it.
 3. **The no-regen assumption is NOT supported by the literature** (that claim was
    refuted in the survey). It must be justified independently from real G1
    actuator/driver specs — not asserted. This raises the priority of the
-   Kt/R/regen open item.
+   Kt/R/regen open item. *(Subsequently justified on engineering grounds — back-EMF
+   below the ~48 V bus at locomotion speeds — in `running_program.md` / `CLAUDE.md`;
+   that is the independent justification this point asked for, not a contradiction.)*
 4. **The central empirical question is exactly the right one:** do Plooij/STEPPR
    wins (which used *clutched* springs) survive with an *always-engaged* spring
    once the gait can adapt in-loop? That post-hoc-vs-in-loop contrast is the

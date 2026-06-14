@@ -35,7 +35,7 @@ def make_env(cfg: RunConfig):
     if spec is not None:
         env = SpringWrapper(env, spec, cfg.spring.joint)
     if cfg.energy_reward_weight != 0.0:
-        env = ElectricalRewardWrapper(env, cfg.energy_reward_weight)
+        env = ElectricalRewardWrapper(env, cfg.energy_reward_weight, cfg.energy_motor)
     return env
 
 
@@ -47,17 +47,19 @@ class ElectricalRewardWrapper:
     evaluation cost of transport uses, so the training objective is aligned with
     the metric. tau is the MOTOR torque (qfrc_actuator), so in the spring
     condition the spring's contribution (injected via qfrc_applied) is correctly
-    excluded from the motor's electrical cost. Kt, R are the placeholder
-    constants in energy.G1_KNEE, identical across conditions.
+    excluded from the motor's electrical cost. Kt, R are the joint-side constants
+    from energy.motor_constants(motor) (per cfg.energy_motor), identical across
+    conditions.
     """
 
-    def __init__(self, env, weight: float):
-        from pea.energy import G1_KNEE
+    def __init__(self, env, weight: float, motor: str = "g1"):
+        from pea.energy import motor_constants
 
+        mc = motor_constants(motor)
         self._env = env
         self._weight = float(weight)
-        self._kt = G1_KNEE.kt
-        self._r = G1_KNEE.r
+        self._kt = mc.kt
+        self._r = mc.r
 
     def step(self, state, action):
         import jax.numpy as jnp

@@ -1,21 +1,32 @@
-# Results — Parallel-Elastic Knee Efficiency Study
+# Results — Parallel-Elastic Efficiency Study
 
 Running record of experimental results, accumulating across milestones. Terse
 session notes live in `JOURNAL.md`; this file holds the numbers, methods, and
 caveats in enough detail to write up or reproduce later. Newest milestone last.
 
-Headline so far: a walking G1 baseline is trained and verified. The **knee** work
-loop is offset-dominated (a passive linear spring degenerates to k=0), so the
-spring target moved to the **hip-pitch** joint, where a buildable linear spring
-captures ~51–60 % of mean-square torque. Post-hoc bounds on the fixed baseline
-gait (optimistic): the knee constant element gave −16.1 % total knee electrical /
-−41.5 % / −35.8 % knee ohmic with placeholder constants; with the later
-**estimated** G1 constants the hip-pitch linear spring gives **−55 % hip-pitch
-ohmic** but only **−10.7 % hip-pitch total electrical** (≈ −2.9 % of whole-body
-motor electrical). Ohmic is ~4 % of the motor budget on this geared humanoid, so
-the total-electrical win is modest and concentrated at the hip — see the
-"Motor constants estimated" section. The in-loop gate (Milestone 4) is the
-credible test and is not yet run.
+**Headline — the arc.** Targeted parallel elasticity does **not** buy walking efficiency
+on a high-geared commercial humanoid (G1), but **does** on a low-gear quadruped (Go1).
+**The gear ratio is the crux.**
+
+- **G1 (humanoid, knee/hip 22.5:1).** The knee work loop is offset-dominated (a passive
+  linear spring degenerates to k=0), so the target moved to the **hip-pitch** (a buildable
+  linear spring there captures ~51–60 % of mean-square torque). Post-hoc it looked like a
+  win (**−3.84 % whole-body**), but the **in-loop retrain REVERSED it to +7.4 % WORSE**, and
+  less stable (3/4 vs 4/4 survival). Ohmic is only **~4 %** of the budget; the small post-hoc
+  win was no-regen braking recovery (**~0 % under regeneration**). → nine negative results,
+  catalogued in **`docs/negative_results.md`**.
+- **Go1 (quadruped, 6.33:1).** Ohmic is **54 %** of the budget — the τ² lever is finally
+  armed. The calf is *also* offset-dominated (linear spring null, +0.0 %), so the right
+  passive element is a **constant knee preload** (τ₀≈3.5 N·m, all four calves). Post-hoc
+  **−14.9 %**, and the **in-loop retrain HELD/IMPROVED it to −16.7 % whole-body electrical
+  with NO stability cost** (4/4 survival): 153.4 → 127.8 W. The gait adapts to *exploit* the
+  offload instead of fighting it. **The one positive result, confirmed across 2 seeds**
+  (−16.7 % and −19.7 % whole-body, both 4/4 stable).
+
+The whole difference is **gearing + element kind**: low gear arms the ohmic (τ²) lever, and
+a *constant* preload matches the offset-dominated knee work loop and is gait-compatible (no
+swing-phase fighting, unlike the G1's angle-dependent linear spring). G1 post-hoc detail is
+retained in the milestone sections below.
 
 ---
 
@@ -33,8 +44,10 @@ credible test and is not yet run.
   (qpos 16, dof 15).
 - **Energy model** (`src/pea/energy.py`): per actuator
   `P = τ·ω + (τ/Kt)²·R`; negative work is **dissipated, not regenerated**
-  (`P ← max(P,0)`) per the project assumption. Motor constants are
-  **PLACEHOLDERS** (`Kt = 1.0 N·m/A`, `R = 0.05 Ω`, joint-side): absolute
+  (`P ← max(P,0)`) per the project assumption. Motor constants for the **Milestone 1–3 post-hoc numbers below** are
+  **PLACEHOLDERS** (`Kt = 1.0 N·m/A`, `R = 0.05 Ω`, joint-side); the energy model now
+  ships **estimated** G1 constants (`Kt ≈ 2.3`, `R ≈ 0.013`, `R/Kt² ≈ 0.0025`, see
+  *Motor constants estimated* below). Either way absolute
   watts/joules are not trustworthy, but (a) copper-loss **percentages** are
   Kt/R-independent and (b) baseline-vs-spring comparisons at identical
   constants are valid. Real G1 actuator Kt/R is an open TODO before any
@@ -193,7 +206,7 @@ no-regen:
   motors **48.7 → 43.5 W** (−5.2 W, −10.7 %); whole-body **178.5 → 173.3 W**
   (−5.2 W, −2.9 %). All of it is hip-pitch (the post-hoc only touches those DoFs).
 - **No-regeneration tax:** with regen the bill is 135.5 W; no-regen is 178.5 W —
-  the **+43 W (+32 %)** gap is braking work dumped as heat. With the spring the
+  the **+43 W** gap is braking work dumped as heat (**+32 %** over the regen bill, i.e. **~24 %** of the no-regen bill — the single ~24 % figure used elsewhere). With the spring the
   regen-view bill barely moves (135.5 → 135.6 W), so the entire 5.2 W saving is
   braking recovery, **not** ohmic. The spring acts as a passive substitute for
   regeneration; its win is as no-regen-dependent as that implies.

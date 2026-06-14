@@ -58,6 +58,14 @@ class RunConfig:
     # and omits the ohmic channel where the spring helps most). 0 disables it.
     # MUST be identical across the spring and no-spring conditions. Negative.
     energy_reward_weight: float = 0.0
+    # Which energy.MOTORS[...] constants the electrical penalty uses (joint-side Kt,
+    # winding R). Robot-specific: "g1" (default, geared humanoid) or "go1_knee" (Go1
+    # quadruped, low gear -> ohmic actually bites). Eval uses the same lookup.
+    energy_motor: str = "g1"
+    # Payload domain randomization (Go1): add a box of +U(0, payload_max_kg) kg to the
+    # trunk each episode (0 disables -> stock per-env DR). The controller does NOT observe
+    # it (real-world realism); one blind policy learns load-robust walking. See payload.py.
+    payload_max_kg: float = 0.0
 
 
 def load_config(path: str | pathlib.Path) -> RunConfig:

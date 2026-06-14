@@ -1,0 +1,21 @@
+# Go1 quadruped WITH a constant-torque (preload) element at all 4 knees (calf) — the
+# in-loop SPRING condition. The calf work-loop is OFFSET-DOMINATED (linear fit k=0,
+# like the G1 knee, NR-1), so a LINEAR spring is null (+0.00% post-hoc); the right
+# passive element is a CONSTANT preload that offloads the ~constant support torque.
+# On the low-gear Go1 ohmic is 54% of the budget, so this cuts real heat: post-hoc
+# -14.9% (best tau0 ~ 3.5 N*m, vs the G1 hip's -3.84%). Matched to go1_baseline.yaml
+# except the spring block; trained fresh 200M (same seed) for a clean fresh-vs-fresh
+# comparison. The element is ALWAYS-ON, so it may fight leg flexion in swing (the
+# failure mode that reversed the G1 result in-loop) — the in-loop run is the verdict.
+name: spring_go1
+env_name: Go1JoystickFlatTerrain
+seed: 1
+domain_randomization: true
+spring:
+  kind: constant
+  joint: calf
+  tau0: 3.5      # N*m preload per knee (post-hoc energy optimum ~3.5; offloads the
+                 # +4.2..+5.0 N*m mean support torque, all four calves same sign)
+energy_reward_weight: -1.0e-4
+energy_motor: go1_knee
+ppo: {}

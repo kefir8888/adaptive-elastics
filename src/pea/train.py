@@ -107,9 +107,15 @@ def main() -> None:
     if args.num_timesteps is not None:
         training_params["num_timesteps"] = args.num_timesteps
     if cfg.domain_randomization and not args.smoke:
-        training_params["randomization_fn"] = registry.get_domain_randomizer(
-            cfg.env_name
-        )
+        if cfg.payload_max_kg > 0.0:
+            from pea import payload
+            training_params["randomization_fn"] = payload.payload_randomizer(
+                cfg.payload_max_kg
+            )
+        else:
+            training_params["randomization_fn"] = registry.get_domain_randomizer(
+                cfg.env_name
+            )
 
     restore = (
         str(policy_lib.latest_checkpoint(pathlib.Path(args.restore).resolve()))

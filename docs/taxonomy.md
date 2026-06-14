@@ -51,7 +51,7 @@ Spot/ANYmal are the high-gear outliers (the wear story).
 
 | robot | gear | class | avail | kinematics | spring joint | benefit |
 |---|---|---|---|---|---|---|
-| Berkeley Humanoid | 9.1:1 QDD | LOW | ✓ flat+rough | **fully serial** (motor/joint) | hip-pitch, knee | **energy** (8–17 %) |
+| Berkeley Humanoid | 9:1 QDD | LOW | ✓ flat+rough | **fully serial** (motor/joint) | hip-pitch, knee | **energy** (8–17 %) |
 | Unitree G1 | 22.5:1 QDD | MID | ✓ flat+rough | serial hip/knee + **∥ ankle** | hip-pitch (knee=const) | marginal energy |
 | Unitree H1 | custom servo (?) | MID? | ✓ | **serial** (1-DoF pitch ankle) | hip-pitch | energy (larger abs) |
 | Booster T1 | custom (?) | ? | ✓ flat+rough | serial hip/knee + **∥ ankle** | hip-pitch, knee | energy/wear |
@@ -128,6 +128,6 @@ hip-pitch vs quadruped knee — with honest electrical (no-regen) + gearbox-wear
 accounting, walk controllers reused for running.*
 
 ## Data-quality flags
-H1 gear unconfirmed (custom servo, 360 N·m peak); Berkeley 9.1:1 medium-confidence;
+H1 gear unconfirmed (custom servo, 360 N·m peak); Berkeley 9:1 medium-confidence (9.1:1 is HECTOR);
 Spot/Booster/DecART gear ratios undisclosed; Bjelonic robust numbers = +33 % torque-square,
 −30 % peak, +11 % runtime.

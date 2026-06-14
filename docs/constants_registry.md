@@ -62,7 +62,7 @@ logic lives in `src/pea/`.
 |---|---|---|---|---|---|
 | `G1_KNEE.kt` (Kt, joint-side) | 2.3 N·m/A | `energy.py:46` | ohmic, elec power, CoT, ohmic %, all spring %, energy reward | PROXY-ESTIMATE (gear-scaled Go2 + peak-torque routes; 2.0–2.7) | Real 7520-22.5 datasheet/teardown. **KNOWN-SUSPECT** via R/Kt². |
 | `G1_KNEE.r` (R, winding) | 0.013 Ω | `energy.py:46` | same as Kt | PROXY-ESTIMATE (0.009–0.025) | Measured phase resistance. **KNOWN-SUSPECT**. |
-| **R/Kt² (derived)** | ≈ 0.00246 Ω/(N·m/A)² | from `energy.py:46` (doc `:38`) | the only Kt/R combination affecting headline ohmic-% | DERIVED from two estimates (0.0020–0.0032) | **KNOWN-SUSPECT: believed ~8–19× optimistic.** Re-derive from datasheet; report CoT as a band. |
+| **R/Kt² (derived)** | ≈ 0.00246 Ω/(N·m/A)² | from `energy.py:46` (doc `:38`) | the only Kt/R combination affecting headline ohmic-% | DERIVED from two estimates (0.0020–0.0032) | **UNSOURCED** (no external G1 value) but central ≈ the code value — the optimistic edge of band 0.001–0.020 (BEST ≈ 0.0024 knee / 0.0059 hip-pitch, `g1_motor_constants.md`); the earlier 8–19× optimistic alarm was retracted (100× arithmetic artifact). Report CoT as a band. |
 | `MOTORS['g1']` | = `G1_KNEE` | `energy.py:55` | sweep energy when `--robot g1` | same as G1_KNEE | as above |
 | `MOTORS['go2'].kt` | 0.26 N·m/A | `energy.py:56` | Go2 cross-robot energy | PROXY-ESTIMATE | **KNOWN-SUSPECT: motor-side, must gear-scale ×6.22 → ≈1.62.** |
 | `MOTORS['go2'].r` | 0.30 Ω | `energy.py:56` | Go2 cross-robot energy | PLACEHOLDER | Superseded by measured 0.44 line / 0.66 phase. |
@@ -140,6 +140,6 @@ logic lives in `src/pea/`.
   the no-regen clamp reimplemented in 4–6 places. Any correction to Kt/R or the trim window
   must be applied everywhere or the consolidated `metrics.py` path and the one-off scripts
   will diverge.
-- **Most load-bearing yet least-verified number is `R/Kt²`** (suspected 8–19× optimistic).
+- **Most load-bearing yet least-verified number is `R/Kt²`** (no external G1 source; band 0.001–0.020, central ≈ the code value per `g1_motor_constants.md` — the earlier 8–19× optimistic alarm was retracted).
   The `[...,6:]`/`>=6` offset and the no-regen flag are the most load-bearing *assumptions*
   (they define what "whole-body electrical" means).

@@ -1,0 +1,11 @@
+# Go1 baseline, SEED 2 — robustness check for the positive result. Identical to
+# go1_baseline.yaml except seed. Pair with spring_go1_s2.yaml.
+name: go1_baseline
+env_name: Go1JoystickFlatTerrain
+seed: 2
+domain_randomization: true
+spring:
+  kind: none
+energy_reward_weight: -1.0e-4
+energy_motor: go1_knee
+ppo: {}
