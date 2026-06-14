@@ -1,0 +1,16 @@
+# Go1 + per-leg knee preload DR — trains a blind policy ROBUST to any preload; the adaptive
+# clipped-proportional controller sets the per-leg tau0 at EVAL (tracks each knee's measured
+# load, ramped <=2 N*m/s). Matched to go1_baseline_payload.yaml (flat, payload 0-25kg, blind,
+# energy -1e-4) + preload DR. tau0 here = the MAX preload for the U(0,tau0) per-episode draw.
+name: spring_go1_adaptive
+env_name: Go1JoystickFlatTerrain
+seed: 1
+domain_randomization: true
+payload_max_kg: 25.0
+spring:
+  kind: preload_dr
+  joint: calf
+  tau0: 15.0      # max per-leg preload for the DR draw (U(0,15) N*m per episode)
+energy_reward_weight: -1.0e-4
+energy_motor: go1_knee
+ppo: {}

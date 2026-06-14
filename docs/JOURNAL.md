@@ -8,6 +8,27 @@ happened, what's open/broken, and the single next step.
 
 ---
 
+## 2026-06-15 (session 2) — Adaptive per-leg mechanism VALIDATED, but payload-DR broke locomotion
+- **The adaptive per-leg preload mechanism WORKS (validated):** `PreloadDRWrapper` (env.py)
+  trains fine under vmap/jit (reward parity 18.2 vs baseline 18); the clipped-proportional
+  controller ramps per-leg τ₀ sensibly with load — `conv_tau0 [4.8,6.5,4.1,2.6]`@0kg →
+  `[8.6,8.5,5.4,6.1]`@25kg (front>rear, the asymmetry), and where applied it offloads energy
+  (323→208 W at 25 kg). So the SR-integral controller + per-leg preload DR are sound.
+- **BUT the capacity result is INVALID:** both payload-DR policies walk at **~0 m/s** (they
+  STAND, don't go forward) at *every* commanded speed (0.3→1.0). The **0–25 kg range (up to 2×
+  body mass) taught the policy to stand** (safe under heavy load) instead of committing to
+  forward walking. DIAGNOSED cleanly: the ORIGINAL Go1 walker runs **0.97 m/s through the SAME
+  script** → pin/script/mechanism all fine; only the payload-DR policy is broken. (tracking_lin_vel
+  reward is high, 367.5, because the env evals on *random* commands; a *constant forward* command → stand.)
+- **FIX (needs tuning, tomorrow):** retrain with a NARROWER, walkable payload range (~0–6 to 0–10 kg;
+  Go1 realistic max ~11 kg) and/or a higher tracking-reward weight / payload curriculum / forward-biased
+  command. Note the "capacity ceiling" is *stops walking*, not *falls* (the robot stands at 25 kg).
+- **Safe (local + committed):** `PreloadDRWrapper`, `spring_go1_adaptive*.yaml`,
+  `go1_baseline_payload*.yaml`, `scripts/go1_capacity.py` (unified eval w/ speed). Baseline + adaptive
+  policies in `outputs/runs/`. Box halted → auto-deleted.
+- **RESUME:** retrain Go1 payload baseline + adaptive at 0–6/0–10 kg tuned for forward walking → re-run
+  the capacity curves → the energy-vs-load + walk-forward-capacity headline.
+
 ## 2026-06-15 — Box deleted (budget stopped); RESUME PLAN for the load study
 - **State:** H100 halted+auto-deleted. Payload-baseline POLICY lost (not synced in time) but
   reproducible from `configs/go1_baseline_payload.yaml` (~14 min). All code/configs/docs/results

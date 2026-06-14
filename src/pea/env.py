@@ -31,9 +31,14 @@ def make_env(cfg: RunConfig):
         else:
             env_cfg[key] = value
     env = registry.load(cfg.env_name, config=env_cfg)
-    spec = springs.from_config(cfg.spring)
-    if spec is not None:
-        env = SpringWrapper(env, spec, cfg.spring.joint)
+    if cfg.spring.kind == "preload_dr":
+        # per-leg constant knee preload, randomized U(0, tau0) per episode (preload DR):
+        # the policy learns robust-to-any-preload; the adaptive controller sets it at eval.
+        env = PreloadDRWrapper(env, cfg.spring.joint, cfg.spring.tau0)
+    else:
+        spec = springs.from_config(cfg.spring)
+        if spec is not None:
+            env = SpringWrapper(env, spec, cfg.spring.joint)
     if cfg.energy_reward_weight != 0.0:
         env = ElectricalRewardWrapper(env, cfg.energy_reward_weight, cfg.energy_motor)
     return env
@@ -104,6 +109,47 @@ class SpringWrapper:
         theta = state.data.qpos[..., self._qpos_adr]
         tau = tau_spring(theta, self._spec)
         qfrc = state.data.qfrc_applied.at[..., self._dof_adr].set(tau)
+        state = state.replace(data=state.data.replace(qfrc_applied=qfrc))
+        return self._env.step(state, action)
+
+    def __getattr__(self, name):
+        return getattr(self._env, name)
+
+
+class PreloadDRWrapper:
+    """Per-leg constant knee preload, randomized U(0, max_tau0) per episode (preload DR).
+
+    Trains a policy ROBUST to any preload; the adaptive controller (eval) sets the per-leg
+    tau0 to track each knee's measured load. tau0 is a per-joint vector stored in
+    state.info['preload_tau0'] (it persists — the env step mutates info in place). Applied as
+    a constant torque at each target DoF via qfrc_applied, exactly like SpringWrapper(constant)
+    but per-leg and randomized. qfrc_actuator stays the MOTOR torque, so the energy model
+    correctly excludes the (passive) preload. At eval, overwrite state.info['preload_tau0']
+    each step with the adaptive controller's value and this wrapper applies it.
+    """
+
+    def __init__(self, env, joint_substr: str, max_tau0: float):
+        import jax.numpy as jnp
+
+        self._env = env
+        self._max = float(max_tau0)
+        joints = joints_by_substring(env.mj_model, joint_substr)
+        self._dof_adr = jnp.array([v["dof_adr"] for v in joints.values()])
+        self._n = len(joints)
+
+    def reset(self, rng):
+        import jax
+
+        rng, key = jax.random.split(rng)
+        state = self._env.reset(rng)
+        state.info["preload_tau0"] = jax.random.uniform(
+            key, (self._n,), minval=0.0, maxval=self._max
+        )
+        return state
+
+    def step(self, state, action):
+        tau0 = state.info["preload_tau0"]
+        qfrc = state.data.qfrc_applied.at[..., self._dof_adr].set(tau0)
         state = state.replace(data=state.data.replace(qfrc_applied=qfrc))
         return self._env.step(state, action)
 

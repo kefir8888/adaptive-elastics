@@ -1,0 +1,14 @@
+# Go1 per-leg preload DR, SEED 2 — robustness for the load study. Identical to
+# spring_go1_adaptive.yaml except seed.
+name: spring_go1_adaptive
+env_name: Go1JoystickFlatTerrain
+seed: 2
+domain_randomization: true
+payload_max_kg: 25.0
+spring:
+  kind: preload_dr
+  joint: calf
+  tau0: 15.0
+energy_reward_weight: -1.0e-4
+energy_motor: go1_knee
+ppo: {}
