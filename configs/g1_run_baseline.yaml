@@ -1,0 +1,22 @@
+# G1 RUNNING baseline (no spring) — Part 2, running-energy study. Extends the G1 joystick
+# forward-velocity command from the walk default [-1, 1] to [0, 3] m/s: the low end lets the
+# 29-DoF humanoid bootstrap balance/walking, the high end pushes it to RUN (implicit speed
+# curriculum in one run). "Fastest stable run" is read off at eval. Matched reward to the
+# Part 1 walker (smoothness trio + total-electrical penalty) so the spring condition differs
+# ONLY by the knee spring. Baseline-first: its running gait (knee angle/torque) sets the
+# knee-spring equilibrium + stiffness.
+name: g1_run_baseline
+env_name: G1JoystickFlatTerrain
+seed: 1
+domain_randomization: true
+env_overrides:
+  lin_vel_x: [0.0, 3.0]    # running range (walk default [-1, 1]); eval finds the fastest stable
+reward_scales:
+  action_rate: -0.01       # anti-chatter (Part 1 fix), keeps ohmic honest
+  dof_acc: -2.5e-7
+  torques: -1.0e-4
+spring:
+  kind: none
+energy_reward_weight: -2.5e-4
+energy_motor: g1
+ppo: {}
