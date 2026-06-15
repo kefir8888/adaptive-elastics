@@ -1,0 +1,12 @@
+# Go1 payload baseline — SAFE 6 kg fallback (0.5x body mass, certainly walkable). Used by the
+# autonomous pipeline only if the 10 kg run collapses to standing (tracking_lin_vel < ~550).
+name: go1_baseline_payload
+env_name: Go1JoystickFlatTerrain
+seed: 1
+domain_randomization: true
+payload_max_kg: 6.0
+spring:
+  kind: none
+energy_reward_weight: -1.0e-4
+energy_motor: go1_knee
+ppo: {}

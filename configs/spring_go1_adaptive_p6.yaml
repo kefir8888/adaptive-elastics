@@ -1,0 +1,14 @@
+# Go1 per-leg preload DR — SAFE 6 kg fallback (matches go1_baseline_payload_p6.yaml). tau0=8
+# matches the ~0-6 N*m preload a 0-6 kg load needs. Used only if the 10 kg run collapses.
+name: spring_go1_adaptive
+env_name: Go1JoystickFlatTerrain
+seed: 1
+domain_randomization: true
+payload_max_kg: 6.0
+spring:
+  kind: preload_dr
+  joint: calf
+  tau0: 8.0
+energy_reward_weight: -1.0e-4
+energy_motor: go1_knee
+ppo: {}
