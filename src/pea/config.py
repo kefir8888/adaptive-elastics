@@ -66,6 +66,10 @@ class RunConfig:
     # trunk each episode (0 disables -> stock per-env DR). The controller does NOT observe
     # it (real-world realism); one blind policy learns load-robust walking. See payload.py.
     payload_max_kg: float = 0.0
+    # Scales the rough-terrain heightfield elevation (hfield_size[:,2]). 1.0 = stock
+    # (Go1 rough = 5 cm max bumps); 0.5 halves all bumps (2.5 cm) for an easier-terrain
+    # start / roughness curriculum. No-op on flat terrain (no hfields). Eval must match.
+    terrain_height_scale: float = 1.0
 
 
 def load_config(path: str | pathlib.Path) -> RunConfig:

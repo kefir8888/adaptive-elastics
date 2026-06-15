@@ -31,6 +31,17 @@ def make_env(cfg: RunConfig):
         else:
             env_cfg[key] = value
     env = registry.load(cfg.env_name, config=env_cfg)
+    if cfg.terrain_height_scale != 1.0 and getattr(env, "_mjx_model", None) is not None \
+            and int(env._mjx_model.nhfield) > 0:
+        # Scale rough-terrain bump heights (hfield elevation) for an easier-terrain start /
+        # roughness curriculum. heights = hfield_data * hfield_size[:,2], so scaling the
+        # elevation column scales every bump. mjx_model is a read-only property -> set the
+        # backing field (same pattern as go1_capacity.py's payload-mass injection).
+        import numpy as np
+        m = env._mjx_model
+        hs = np.array(m.hfield_size)            # static (numpy) field, not a traced jax array
+        hs[:, 2] = hs[:, 2] * cfg.terrain_height_scale
+        env._mjx_model = m.replace(hfield_size=hs)
     if cfg.spring.kind == "preload_dr":
         # per-leg constant knee preload, randomized U(0, tau0) per episode (preload DR):
         # the policy learns robust-to-any-preload; the adaptive controller sets it at eval.

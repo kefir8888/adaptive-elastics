@@ -1,0 +1,15 @@
+# Go1 6 kg adaptive per-leg preload on EASIER rough terrain (2.5 cm bumps), warm-started from
+# the flat 6 kg adaptive policy. Matched control for go1_baseline_rough_half.yaml.
+name: spring_go1_adaptive_rough_half
+env_name: Go1JoystickRoughTerrain
+seed: 1
+domain_randomization: true
+payload_max_kg: 6.0
+terrain_height_scale: 0.5
+spring:
+  kind: preload_dr
+  joint: calf
+  tau0: 8.0
+energy_reward_weight: -1.0e-4
+energy_motor: go1_knee
+ppo: {}

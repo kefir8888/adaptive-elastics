@@ -1,0 +1,15 @@
+# Go1 6 kg baseline on EASIER rough terrain — bumps halved to 2.5 cm (terrain_height_scale=0.5),
+# and warm-started from the flat 6 kg policy (pipeline --restore). This is the FAIR rough-terrain
+# test the full-5 cm-from-scratch run botched (blind + loaded + max roughness, no curriculum).
+# If it walks here, ramp to full roughness (scale 1.0) warm-started from this — a terrain curriculum.
+name: go1_baseline_rough_half
+env_name: Go1JoystickRoughTerrain
+seed: 1
+domain_randomization: true
+payload_max_kg: 6.0
+terrain_height_scale: 0.5
+spring:
+  kind: none
+energy_reward_weight: -1.0e-4
+energy_motor: go1_knee
+ppo: {}
