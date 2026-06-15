@@ -28,6 +28,8 @@ while hasattr(go1, "_env"):
 base = float(go1._mjx_model.body_mass[1])
 go1._mjx_model = go1._mjx_model.replace(body_mass=go1._mjx_model.body_mass.at[1].set(base + PAY))
 mj = env.mj_model
+if cfg.terrain_height_scale != 1.0 and mj.nhfield > 0:
+    mj.hfield_size[:, 2] *= cfg.terrain_height_scale  # match render terrain to scaled dynamics
 _, _, da = metrics.joint_addrs(mj, "calf")
 da = np.array(da)
 dt = float(env.dt)

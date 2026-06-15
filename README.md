@@ -1,104 +1,72 @@
-# adaptive-elastics
+# adaptive-elastics — Parallel-Elastic Efficiency Study
 
-Does a tunable **parallel elastic spring** (hip-pitch target, moved from the knee) reduce the *electrical*
-energy of walking for a Unitree G1 humanoid? Motor copper loss scales with
-torque squared (`P ≈ (τ/Kt)²·R`), so offloading torque to a passive spring cuts
-heat quadratically — if the gait can exploit it. MuJoCo end to end; metrics are
-copper loss and cost of transport, not mechanical work. See `CLAUDE.md` for the
-full experiment design.
+Does a tunable **parallel elastic spring** reduce the *electrical* energy (cost of transport) of legged
+locomotion by offloading motor torque? Motor ohmic loss scales with torque squared (`P ≈ (τ/Kt)²·R`), so
+offloading torque to a passive spring cuts heat quadratically — **if the gait can exploit it and the gearing
+makes ohmic loss matter.** MuJoCo end-to-end (Playground + MJX + brax PPO); the metric is electrical energy /
+cost of transport, not mechanical work. Full design in `CLAUDE.md`.
 
-## Current state (2026-06-14)
+## Headline finding: gearing is the crux
 
-Milestones 1–3 done; the G1-walk in-loop gate is **run — and NEGATIVE**: the in-loop
-hip-pitch spring is ~7% worse and less stable, *reversing* the post-hoc −3.8%. Full
-catalog in **`docs/negative_results.md`**. Go1 quadruped (low-gear) track now running.
-Detail in `docs/JOURNAL.md` (start here), `RESULTS.md`, `PLAN.md`, `mechanism.md`,
-`related_work.md`, and the three docs written this session: **`directions.md`**
-(six-direction map), **`running_program.md`** (the next focus), **`taxonomy.md`**
-(cross-morphology study), and **`negative_results.md`** (the catalogued negative/null
-results — the study's headline output), and **`load_program.md`** (the active direction:
-quadruped load-carrying + the adaptive self-tuning knee preload).
+| Platform | Gear ratio | Ohmic share of budget | Parallel-spring verdict |
+|--|--|--|--|
+| Unitree **G1** humanoid | 22.5:1 (high) | ~4 % | **Negative** — in-loop hip spring **+7 % worse** for walking (9 catalogued negatives) |
+| Unitree **Go1** quadruped | 6.33:1 (low) | ~54 % | **Positive** — constant knee (calf) preload cuts CoT **−17 to −27 %** (3 seeds) |
 
-**Meaningful outcomes of the 2026-06-14 dialogue:**
-- **The G1-walk energy win is small and gear-limited.** With real-ish constants
-  ohmic is only ~4 % of the motor budget; the post-hoc hip-spring saves ~3 %
-  whole-body and **~0 % under regeneration** — the win is braking-energy recovery,
-  not the quadratic copper term.
-- **Torque-vs-speed resolved from the real Unitree specs** (jnt_actfrcrange + G1
-  URDF): **knee is SPEED-limited** (139 N·m / 20 rad/s), **hip is TORQUE-limited**
-  (88 N·m / 32 rad/s). So a parallel spring **cannot raise G1 jump height** (knee
-  speed-capped → series/low-gear for height); it helps **hip torque + efficiency/
-  landing**. The biped knee wants a constant-torque element, not a torsion spring.
-- **Two value axes:** efficiency (energy/CoT/ohmic) AND performance/durability
-  (peak power, jump/sprint, and **gearbox wear** = peak+RMS torque).
-- **Two validity confounds caught:** (1) the baseline policy *chatters* (a default-
-  zero `action_rate` penalty → ~55 % sawtooth) which inflates energy and dilutes
-  the spring %; fix = enable `action_rate`. (2) The baseline was **energy-naive** —
-  the spring must be measured against an **energy-AWARE** baseline, never the naive
-  walker. Both raise the bar for the gate.
-- **No-regeneration justified for the G1** (back-EMF below the bus at locomotion
-  speeds); exceptions exist (MIT Cheetah, reportedly Optimus); ~24 % sensitivity.
-- **Next focus: G1 running for EFFICIENCY** (`running_program.md`) — bigger braking
-  energy than walking, where the spring should pay more.
-- **Cross-morphology study mapped** (`taxonomy.md`): the spring's benefit **shifts
-  with gear** — energy at low gear (Berkeley 9:1, Go1/Barkour 6:1), wear at high
-  gear (Spot, ANYmal), G1 the middle. Biped → hip-pitch; quadruped → thigh+knee.
-  Kinematics: serial (Berkeley, H1) · parallel ankle (G1, Booster) · full parallel
-  (Cassie, DecART). A comprehensive study is **~£160–210** on ready Playground envs.
+On the low-gear Go1, ohmic loss dominates, so offloading the knee's support torque pays. On the high-gear G1
+ohmic is negligible and the always-on spring just fights the gait. **The gear ratio decides the sign.**
 
-Spring (walk gate): **hip-pitch** linear `k=68 N·m/rad, θ0=-0.29` vs matched no-spring.
-New tooling: `pea-sweep` (multi-joint, energy + wear), `metrics.{saturation,
-fit_linear_spring}`, the motor torque–speed envelope (`energy.G1_LIMITS/G1_JOINT_VEL`),
-and `configs/run_baseline.yaml` (the energy-aware, smooth runner).
+## Current state (2026-06-16)
 
-### To run Milestone 4 on a GPU machine
+**Done + validated — Go1 quadruped (the positive track):**
+- **Constant parallel knee preload cuts cost of transport −17 to −27 %** on flat ground, **3 seeds**
+  (seeds 1 & 3 strong, seed 2 weaker at low load). The element must be a CONSTANT preload, not a linear
+  spring — the knee work-loop is offset-dominated, so a linear fit degenerates to k ≈ 0.
+- **Adaptive per-leg self-tuning preload** — a slow clipped-proportional loop ramps each leg's preload to
+  offload its own measured knee torque, with **no load sensor and no payload observation**. Validated; extends
+  the win to **load-carrying (0–6 kg payloads)**, where the CoT benefit **grows with load**.
+- **Walking videos** rendered (flat + rough, no-load + 5 kg) in `outputs/videos/`.
 
+**Caveats / negative / inconclusive:**
+- **Rough terrain:** the energy win survives on mild (2.5 cm) terrain (CoT −10 to −19 %) but **stability is
+  poor** (~40 % survival) — rough locomotion is hard for the blind loaded dog, spring or not. Full 5 cm was
+  inconclusive (under-powered, dropped).
+- **Capacity realism (validity catch):** the warm-started sim Go1 "walks" at 30 kg, but the **real Go1 carries
+  ~5–10 kg max** — the plain sim enforces peak but not continuous/thermal torque or structural/balance limits.
+  High-load (15–30 kg) numbers are **sim-only**; 30 kg is realistic only for a B2-class robot. The physically
+  meaningful Go1 study is **0–6 (10) kg**.
+- **G1 running — two failed attempts:** a [0,3] m/s from-scratch collapse to a 0.85 m/s never-fall walk, then
+  a curriculum + reward-redesign that destabilized it. The Playground G1 walk env structurally resists a flight
+  phase (gait clock + hard-capped air-time). G1 running is a **long-shot** (`docs/g1_running_design.md`).
+
+**Active direction:** **knee spring on a RUNNING dog** (`docs/dog_running_design.md`). The Go1 env is far more
+flight-permissive than the G1 (no gait clock, soft termination), and a quadruped runs with a real flight phase
+so the calf can recover braking energy at impact — likely favouring a one-sided *stiffness* spring over the
+walking constant-preload. Designed; gated on whether a true all-feet-off phase actually emerges.
+
+**Infrastructure:** GPU box is **off** (all results synced locally); no new training until a box is provisioned.
+
+## Docs map
+- `CLAUDE.md` — full experiment design + project rules (**start here for design**).
+- `docs/JOURNAL.md` — dated session history (**start here for "what happened"**).
+- `docs/RESULTS.md`, `docs/negative_results.md` — results + the catalogued negatives (a headline output).
+- `docs/load_program.md` — load-carrying adaptive-preload program + the capacity-realism analysis.
+- `docs/g1_running_design.md`, `docs/dog_running_design.md` — the running-spring designs (G1 hard, dog active).
+- `docs/directions.md`, `docs/taxonomy.md`, `docs/running_program.md` — direction / cross-morphology maps.
+- *Autonomous-session outputs (being generated):* `docs/code_audit.md`, `docs/docs_audit.md`,
+  `docs/weak_spots.md`, `docs/research_patterns.md`, `docs/literature_review.md`,
+  `docs/g1_running_research.md`, `docs/gpu_cost_crypto.md`, `docs/presentation.md`, and `paper/` (IEEE Access draft).
+
+## Stack & layout
+MuJoCo Playground (Go1/G1 joystick envs) + MJX (GPU) for training on a rented H100; CPU MuJoCo/JAX locally for
+rollout, analysis, and video rendering. brax PPO, 8192 parallel envs. Layers: `src/pea/` (core: env, springs,
+energy, policy, config, payload, train, metrics), `scripts/` (train/eval/render/probe), `configs/` (one YAML
+per arm), `docs/`, `outputs/` (gitignored — one folder per run).
+
+### Run training on a GPU box
 ```sh
-# on the box (Ubuntu+CUDA): bootstrap, then
 curl -fsSL https://raw.githubusercontent.com/kefir8888/adaptive-elastics/main/scripts/gpu_box_setup.sh | bash
-# 1) calibration: 5 short no-spring runs at different energy weights
-nohup bash scripts/calib_sweep.sh > ~/calib.log 2>&1 &
-# 2) gate (after picking the weight W from calibration), spring vs no-spring:
-pea-train --config configs/spring_hip_linear.yaml --energy-weight=W --output_dir ~/runs
-pea-train --config configs/baseline_gate.yaml     --energy-weight=W --output_dir ~/runs
-# then rsync ~/runs into the Drive pea_runs folder and, locally:
-#   pea-rollout --run <run> ; pea-analyze --run <run>   (reports ohmic, CoT, total power)
+cd ~/adaptive-elastics && git checkout experiments-2026-06-14
+uv run pea-train --config configs/<arm>.yaml --output_dir ~/runs --suffix <tag>
+# then eval: uv run python scripts/go1_capacity.py <run_dir> 1500
 ```
-
-## Setup (local, macOS)
-
-```sh
-uv sync          # creates .venv with Python 3.12 + pinned deps
-```
-
-**Gotcha:** if your shell exports `PYTHONPATH` (e.g. a sourced ROS 2 workspace),
-it leaks foreign site-packages into the venv and breaks numpy/jax imports.
-Run project commands with it cleared:
-
-```sh
-env -u PYTHONPATH uv run pea-train --config configs/baseline.yaml --smoke
-```
-
-## Workflow
-
-```
-edit (VS Code) → git push → Colab: notebooks/colab_train.ipynb (pip installs
-repo, runs pea-train) → run folder on Google Drive → Drive for Desktop syncs
-to Mac → pea-rollout / pea-analyze locally
-```
-
-- `pea-train --config configs/baseline.yaml` — train (Colab GPU; `--smoke` for
-  a tiny CPU pipeline test; `--restore <run>` to resume)
-- `pea-rollout --run <run_dir> --video --viewer` — replay locally on CPU,
-  writes `trajectory.npz`
-- `pea-analyze --run <run_dir>` — knee angle/torque/work-loop plots and stats
-
-Run folders land in `$PEA_RUNS_DIR`, else Drive (`pea_runs/`), else `outputs/`.
-
-## Layout
-
-- `src/pea/` — all logic: env, springs, energy model, policy IO, train/rollout/analyze
-- `configs/` — one YAML per experiment arm (baseline / linear / nonlinear spring)
-- `scripts/` — thin shims onto `src/pea` entry points
-- `notebooks/colab_train.ipynb` — thin Colab runner, no logic
-- `docs/JOURNAL.md` — session-by-session project memory
