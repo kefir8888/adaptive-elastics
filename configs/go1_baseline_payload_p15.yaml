@@ -1,0 +1,13 @@
+# 15 kg load baseline via CURRICULUM — the pipeline warm-starts this from the 6 kg policy
+# (--restore) so it extends to 0-15 kg without the from-scratch collapse that hit 10 kg.
+# 15 kg (1.25x body mass) is walkable: the 6 kg baseline already did 0.94 m/s at 15 kg OOD.
+name: go1_baseline_payload
+env_name: Go1JoystickFlatTerrain
+seed: 1
+domain_randomization: true
+payload_max_kg: 15.0
+spring:
+  kind: none
+energy_reward_weight: -1.0e-4
+energy_motor: go1_knee
+ppo: {}

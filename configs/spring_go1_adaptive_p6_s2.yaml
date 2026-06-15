@@ -1,0 +1,13 @@
+# 2nd SEED of the 6 kg adaptive per-leg preload — confirms the energy win is not seed-luck.
+name: spring_go1_adaptive
+env_name: Go1JoystickFlatTerrain
+seed: 2
+domain_randomization: true
+payload_max_kg: 6.0
+spring:
+  kind: preload_dr
+  joint: calf
+  tau0: 8.0
+energy_reward_weight: -1.0e-4
+energy_motor: go1_knee
+ppo: {}

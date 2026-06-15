@@ -1,0 +1,13 @@
+# 6 kg adaptive per-leg preload on ROUGH terrain — does the energy win survive rough ground?
+name: spring_go1_adaptive_rough
+env_name: Go1JoystickRoughTerrain
+seed: 1
+domain_randomization: true
+payload_max_kg: 6.0
+spring:
+  kind: preload_dr
+  joint: calf
+  tau0: 8.0
+energy_reward_weight: -1.0e-4
+energy_motor: go1_knee
+ppo: {}

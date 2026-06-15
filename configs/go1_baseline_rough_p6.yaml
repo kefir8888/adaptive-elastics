@@ -1,0 +1,13 @@
+# 6 kg load baseline on ROUGH terrain — robustness/realism for the load-carrying program.
+# Payload randomizer reuses the flat-terrain geom indices (trunk body 1 is identical; the
+# floor-friction term may hit a slightly different geom on rough — harmless, payload is the point).
+name: go1_baseline_rough
+env_name: Go1JoystickRoughTerrain
+seed: 1
+domain_randomization: true
+payload_max_kg: 6.0
+spring:
+  kind: none
+energy_reward_weight: -1.0e-4
+energy_motor: go1_knee
+ppo: {}

@@ -1,0 +1,15 @@
+# 15 kg adaptive per-leg preload via CURRICULUM (warm-started from the 6 kg adaptive policy).
+# tau0 raised to 14 N*m so the per-leg controller does NOT saturate at high load (at 6 kg the
+# front legs already hit the 8 N*m cap OOD; 15 kg support needs ~11-12 N*m per the torque table).
+name: spring_go1_adaptive
+env_name: Go1JoystickFlatTerrain
+seed: 1
+domain_randomization: true
+payload_max_kg: 15.0
+spring:
+  kind: preload_dr
+  joint: calf
+  tau0: 14.0
+energy_reward_weight: -1.0e-4
+energy_motor: go1_knee
+ppo: {}
