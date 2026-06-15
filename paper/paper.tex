@@ -60,16 +60,30 @@ realism bound on the payload range.
 
 \section{Related Work}
 \label{sec:related}
-% TODO: enrich from docs/literature_review.md (autonomous lit-review in progress) — SEA/PEA, VSA, clutched.
-Parallel-elastic torque offloading to cut motor energy is foundational~\cite{plooij2012}. Torque-squared
-(electrical) accounting for a parallel spring, validated on hardware, has been demonstrated on a
-quadruped~\cite{bjelonic2023}. Reinforcement learning with elastic actuators for legged locomotion has been
-explored on quadrupeds~\cite{bjelonic2022}. Tunable parallel springs optimized with a torque-squared metric
-were studied analytically on a leg test-stand~\cite{belov2024}, without RL, gait, or a load-adaptive loop.
-Our work differs by (i) co-adapting the gait to the element in-loop on commercial platforms, (ii) mapping the
-gear-ratio boundary where the benefit reverses, and (iii) the sensor-free, per-leg, load-adaptive preload.
-A fuller survey of series vs.\ parallel elasticity, variable-stiffness actuators, clutched/quasi-passive
-elements, and biological running springs is given in the supplementary literature review.
+Parallel-elastic torque offloading to cut motor energy is well established, and the literature reveals a pattern
+that independently corroborates our thesis: \emph{the large wins are all on low-geared, backdrivable,
+ohmic-dominated systems.} A passive clutched ankle spring in parallel with the calf cut human walking metabolic
+cost by 7.2\% with zero actuation~\cite{collins2015}; Sandia's STEPPR placed parallel springs at the hip and
+ankle for a predicted 30--50\% reduction in cost of transport~\cite{steppr2017}; and on the ANYmal quadruped a
+knee parallel spring co-optimized with an RL controller improved torque-squared efficiency by 33\% and cut peak
+joint torque by 30\%~\cite{bjelonic2023}---the closest prior art to ours. Clutched/quasi-passive parallel
+actuators (the CPEA~\cite{plooij2012}; BirdBot's self-engaging clutch reducing required knee torque
+$\sim$10$\times$~\cite{birdbot2022}) show that gating the spring to the load phase recovers most of the benefit;
+an \emph{always}-engaged spring fighting the swing phase is precisely the failure mode we observe on the
+high-gear G1. For running, energy-aware MPC with parallel springs reports 38.8\% CoT in simulation but only
+14.8\% on hardware~\cite{kinompc2025}---a sobering sim-to-hardware ratio we keep in view. Tunable parallel
+springs optimized with a torque-squared metric were studied analytically on a leg test-stand by the present
+group~\cite{belov2024}, without RL, gait, or load adaptation; RL with elastic actuators has otherwise been
+explored mainly on quadrupeds~\cite{bjelonic2022}.
+
+Our contribution is therefore one of \emph{integration and application}, not a new mechanism: a commercial
+low-gear platform, in-loop RL gait co-adaptation, electrical/ohmic cost-of-transport accounting, the explicit
+post-hoc-vs-in-loop and G1-vs-Go1 gearing contrast, and---the distinguishing element---a sensor-free, per-leg,
+\emph{load-adaptive} preload. We deliberately do \emph{not} add a clutch (which the literature identifies as the
+natural way to defeat the swing-phase penalty); our adaptive preload instead tracks only the slow support
+component the always-on spring can safely carry, which is what makes it sensor-free and deployable. A fuller
+survey---series vs.\ parallel elasticity, variable-stiffness actuators, clutched/quasi-passive elements, and
+biological running springs---is in the supplementary literature review (\texttt{docs/literature\_review.md}).
 
 \section{Method}
 \subsection{Platforms, simulator, and policy}
@@ -167,18 +181,29 @@ harmful on a high-gear humanoid and beneficial on a low-gear quadruped. For the 
 adaptive preload that carries the win into blind load-carrying with the benefit growing with load. The mechanism
 is simple and deployable; its boundary, its element form, and its high-load stability cost are characterized.
 Future work runs the same idea on a \emph{running} quadruped, where impact braking energy is largest and a
-one-sided stiffness spring may add a recovery channel a constant preload cannot.
+one-sided stiffness spring may add a recovery channel a constant preload cannot. The literature's standard
+remedy for the always-on penalty---a clutch that disengages the spring during swing---is the clearest path to
+extend the win into the high-load regime where stability currently degrades, at the cost of the sensor-free
+simplicity our adaptive preload preserves.
 
 \begin{thebibliography}{1}
-\bibitem{plooij2012} M.~Plooij and M.~Wisse, ``A novel spring mechanism to reduce energy consumption of robotic
-arms,'' \emph{IEEE/RSJ IROS}, 2012.
+\bibitem{collins2015} S.~H.~Collins, M.~B.~Wiggin, and G.~S.~Sawicki, ``Reducing the energy cost of human walking
+using an unpowered exoskeleton,'' \emph{Nature}, vol.~522, pp.~212--215, 2015.
+\bibitem{steppr2017} A.~Mazumdar \emph{et al.}, ``Parallel elastic elements improve energy efficiency on the
+STEPPR bipedal walking robot,'' \emph{IEEE/ASME Trans. Mechatronics}, 2017.
 \bibitem{bjelonic2023} F.~Bjelonic \emph{et al.}, ``Learning-based design and control for quadrupedal robots with
-parallel-elastic actuators,'' \emph{IEEE RA-L}, 2023.
+parallel-elastic actuators,'' \emph{IEEE RA-L}, 2023, arXiv:2301.03509.
+\bibitem{birdbot2022} A.~Badri-Spr\"owitz \emph{et al.}, ``BirdBot achieves energy-efficient gait with minimal
+control using a self-engaging mechanical clutch,'' \emph{Science Robotics}, vol.~7, no.~64, 2022.
+\bibitem{plooij2012} M.~Plooij and M.~Wisse, ``A novel spring mechanism to reduce energy consumption of robotic
+arms,'' \emph{IEEE/RSJ IROS}, 2012. (The frequently-cited $\sim$80\% figure is disputed; an adversarial re-check
+traces the 2012 paper to $\sim$20\% on a 2-DOF arm.)
+\bibitem{kinompc2025} ``Energy-aware kinodynamic MPC for legged robots with parallel elasticity,''
+arXiv:2503.05666, 2025 (38.8\% CoT in sim, 14.8\% on hardware).
+\bibitem{belov2024} A.~Belov, I.~Osokin \emph{et al.}, ``Torque-squared-optimal parallel elastic elements for a
+robotic leg,'' Skoltech, 2024.
 \bibitem{bjelonic2022} F.~Bjelonic \emph{et al.}, ``Reinforcement learning for elastic quadrupedal locomotion,''
 2022.
-\bibitem{belov2024} Belov, Osokin \emph{et al.}, ``Torque-squared-optimal parallel elastic elements for a robotic
-leg,'' Skoltech, 2024.
-% TODO: add references from docs/literature_review.md
 \end{thebibliography}
 
 \end{document}
