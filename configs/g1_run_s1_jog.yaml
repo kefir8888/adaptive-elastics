@@ -1,0 +1,30 @@
+# G1 running CURRICULUM, Stage 1 (jog) — config-only, from scratch. Fixes the attempt-1 collapse
+# (the never-fall slow walk) per the design workflow: narrower range [0,1.6], wider tracking_sigma
+# (keep the speed gradient alive), softer termination, no energy penalty (let it move), boosted
+# feet_air_time. Low-risk; expected ~1.4-1.6 m/s. A true flight phase needs a Stage-2 env subclass
+# (air-time cap + gait freq are hardcoded) — built only if this jog is solid.
+name: g1_run_s1_jog
+env_name: G1JoystickFlatTerrain
+seed: 1
+domain_randomization: true
+num_timesteps: 150000000
+env_overrides:
+  lin_vel_x: [0.0, 1.6]
+  reward_config.tracking_sigma: 0.5     # was 0.25 -> keeps speed gradient out to run speed
+  reward_config.max_foot_height: 0.22
+reward_scales:
+  tracking_lin_vel: 1.5
+  termination: -50.0                     # softened from -100 (avoid never-fall collapse)
+  feet_phase: 0.5
+  feet_air_time: 4.0                     # boosted (encourage longer strides)
+  lin_vel_z: -0.2                        # damp vertical hop
+  stand_still: -1.0
+  feet_slip: -0.25
+  action_rate: -0.01
+  dof_acc: -2.5e-7
+  torques: -2.0e-5                        # softened 5x (don't suppress push-off)
+spring:
+  kind: none
+energy_reward_weight: 0.0                 # OFF during run-eliciting stages; restored in final stage
+energy_motor: g1
+ppo: {}
