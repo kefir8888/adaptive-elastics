@@ -1,0 +1,11 @@
+# 3rd SEED of the 6 kg load baseline (exp 1) — third independent seed for the load result.
+name: go1_baseline_payload
+env_name: Go1JoystickFlatTerrain
+seed: 3
+domain_randomization: true
+payload_max_kg: 6.0
+spring:
+  kind: none
+energy_reward_weight: -1.0e-4
+energy_motor: go1_knee
+ppo: {}
