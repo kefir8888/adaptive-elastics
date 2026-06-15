@@ -1,0 +1,184 @@
+% IEEE Access draft — Adaptive Parallel Elastics for Energy-Efficient Quadruped Load Carriage
+% Port to ieeeaccess.cls for submission; uses IEEEtran here for portability.
+\documentclass[journal]{IEEEtran}
+\usepackage{graphicx,amsmath,booktabs,url,hyperref}
+\begin{document}
+
+\title{Gearing Decides the Sign: An Adaptive, Self-Tuning Parallel Knee Preload for
+Energy-Efficient Quadruped Load Carriage}
+
+\author{I.~Osokin \emph{et al.}% TODO author list/affiliations
+\thanks{Preprint draft, \today. Simulation study; absolute electrical figures are reported as bands
+pending measured motor constants.}}
+
+\maketitle
+
+\begin{abstract}
+Adding a passive parallel elastic element beside a motor offloads joint torque and, because resistive
+(ohmic) motor loss scales with the \emph{square} of torque, should cut electrical energy. Whether it does,
+however, is governed by the actuator's gear ratio, which sets how large a share of the electrical budget the
+ohmic term occupies. We study this trade-off end-to-end in simulation (MuJoCo Playground / MJX, brax PPO) on
+two commercial Unitree platforms. On the high-gear G1 humanoid (ohmic $\approx$4\% of the budget) an in-loop
+parallel hip spring makes walking \emph{worse} (+7\%), reversing an optimistic post-hoc estimate. On the
+low-gear Go1 quadruped (ohmic $\approx$54\%) a \emph{constant} parallel knee preload cuts the cost of transport
+(CoT) by 14--27\% across three of four training conditions, with the benefit growing with payload. We further
+introduce an \emph{adaptive, per-leg, self-tuning} preload: a slow outer loop that senses each knee's own motor
+torque and ramps a passive preload to offload it, using no load sensor and no payload observation; it carries
+the energy win into blind load-carrying (0--6\,kg). We report the boundary where the mechanism reverses, the
+constant-preload (vs.\ linear-spring) element insight for the offset-dominated knee, and the high-load
+stability cost honestly. The result is a deployable, sensor-free efficiency mechanism for low-gear load-carrying
+quadrupeds, and a clear statement of when parallel elasticity helps and when it hurts.
+\end{abstract}
+
+\begin{IEEEkeywords}
+parallel elastic actuator, cost of transport, legged robots, quadruped, reinforcement learning, energy efficiency.
+\end{IEEEkeywords}
+
+\section{Introduction}
+Electric legged robots spend much of their energy as heat in the motor windings. For a geared joint the
+copper loss is $P_\Omega = (\tau/K_t)^2 R$, quadratic in joint torque $\tau$, so any mechanism that offloads
+torque from the motor cuts heat super-linearly. A \emph{parallel} elastic element---a spring beside the
+motor---does exactly this for the quasi-static support torque a leg holds during stance, and additionally stores
+and returns energy the motor would otherwise dissipate (most commercial drivers do not regenerate).
+
+The catch is twofold. First, a parallel spring is \emph{always engaged}: it also resists the motor in phases
+where its torque is unwanted, so the policy must learn to exploit it. Second, and decisively, the ohmic term is
+only worth attacking if it is a large share of the budget---and that share is set by the \textbf{gear ratio}.
+High reduction makes the motor-side torque small and the ohmic loss negligible; low reduction leaves large
+torque at the motor, where offloading pays.
+
+\textbf{Contributions.}
+(1) We show \emph{gearing decides the sign}: the same parallel-spring idea is harmful on a high-gear humanoid
+and beneficial on a low-gear quadruped, quantified in matched in-loop experiments.
+(2) For the low-gear Go1 quadruped we measure a \textbf{14--27\% cost-of-transport reduction} from a
+\emph{constant} parallel knee preload, and show the element must be a constant preload, not a linear
+spring---the knee work-loop is offset-dominated.
+(3) We introduce an \textbf{adaptive, per-leg, self-tuning preload} that requires no load sensor and no payload
+observation, and carries the energy win into blind load-carrying with the benefit \emph{growing with load}.
+(4) We report the limits honestly: a seed-dependent magnitude, a high-load stability cost, and a sim-to-real
+realism bound on the payload range.
+
+\section{Related Work}
+\label{sec:related}
+% TODO: enrich from docs/literature_review.md (autonomous lit-review in progress) — SEA/PEA, VSA, clutched.
+Parallel-elastic torque offloading to cut motor energy is foundational~\cite{plooij2012}. Torque-squared
+(electrical) accounting for a parallel spring, validated on hardware, has been demonstrated on a
+quadruped~\cite{bjelonic2023}. Reinforcement learning with elastic actuators for legged locomotion has been
+explored on quadrupeds~\cite{bjelonic2022}. Tunable parallel springs optimized with a torque-squared metric
+were studied analytically on a leg test-stand~\cite{belov2024}, without RL, gait, or a load-adaptive loop.
+Our work differs by (i) co-adapting the gait to the element in-loop on commercial platforms, (ii) mapping the
+gear-ratio boundary where the benefit reverses, and (iii) the sensor-free, per-leg, load-adaptive preload.
+A fuller survey of series vs.\ parallel elasticity, variable-stiffness actuators, clutched/quasi-passive
+elements, and biological running springs is given in the supplementary literature review.
+
+\section{Method}
+\subsection{Platforms, simulator, and policy}
+We use MuJoCo Playground's Unitree Go1 (12\,kg, 6.33:1 reduction) and G1 (high reduction) joystick environments,
+simulated with MJX and trained with brax PPO (8192 parallel environments, 200\,M steps). The policy is a
+feed-forward actor--critic tracking a commanded body velocity at 50\,Hz, under standard domain randomization.
+
+\subsection{Parallel spring model and honest energy accounting}
+The spring torque $\tau_{\mathrm{spring}}(\theta)$ is injected at the target joint through the external
+generalized force \texttt{qfrc\_applied}, \emph{not} through the actuators, so the motor torque
+\texttt{qfrc\_actuator} excludes the passive contribution and the electrical accounting stays honest. Per
+actuated degree of freedom the electrical power is
+\begin{equation}
+P_{\mathrm{elec}} = \max\!\big(\tau\,\omega + (\tau/K_t)^2 R,\; 0\big),
+\end{equation}
+i.e.\ mechanical plus ohmic with \emph{no regeneration} (the $\max(\cdot,0)$ clamp), applied identically in the
+training reward and the evaluation metric. The headline metric is cost of transport, $\mathrm{CoT} =
+P_{\mathrm{elec}}/v$ (electrical watts per metre per second), which normalizes for the speed differences the
+spring induces.
+
+\subsection{The element: a constant preload, not a linear spring}
+Fitting a linear spring to the Go1 knee work-loop degenerates to $k\approx 0$: the loop is dominated by a
+near-constant support offset through stance, not a restoring slope (a $\tau^2$ fit is even mildly
+anti-restoring). The buildable optimum is therefore a \emph{constant preload}, realizable as a heavily
+pre-wound low-rate coil whose torque is nearly constant over the knee's small operating range.
+
+\subsection{Adaptive, per-leg, self-tuning preload}
+A slow outer loop wraps the fast policy. For each leg $i$ it maintains a 15\,s exponential moving average
+$\bar\tau_i$ of that knee's \emph{own} motor torque and ramps the passive preload toward full compensation,
+\begin{equation}
+\dot\tau_{0,i} = \mathrm{clip}\!\big(k_p\,\bar\tau_i,\, -2,\, +2\big)\ \mathrm{N\,m/s},\quad k_p \approx 0.2,
+\end{equation}
+with no load sensor and no payload observation. The four legs are independent reflex loops, so front/rear and
+left/right asymmetry is handled automatically. Because training episodes are shorter than the 15\,s window, we
+\emph{train robust} (preload domain-randomized per episode) and \emph{adapt at deploy} (run the controller in
+long rollouts so $\tau_0$ converges); the converged $\tau_0$ scales with load and is larger on the front legs.
+
+\section{Experiments and Results}
+\subsection{Gearing decides the sign}
+On the high-gear G1, where ohmic loss is $\approx$4\% of the motor budget, an in-loop parallel hip spring makes
+walking \textbf{+7\% worse} and less stable, reversing an optimistic post-hoc $-3.8\%$ (the always-on spring
+fights the gait with no benefit to recover). On the low-gear Go1, ohmic is $\approx$54\% of the budget and the
+knee preload pays (below). This sign flip with gear ratio is the central organizing result.
+
+\subsection{Go1 load-carrying: cost of transport vs.\ load}
+Table~\ref{tab:cot} reports the CoT reduction of the adaptive preload against a matched no-spring baseline on
+flat ground, for three seeds and a payload curriculum; Fig.~\ref{fig:cot} plots CoT and the reduction vs.\ load.
+
+\begin{table}[t]\centering
+\caption{Cost-of-transport reduction (\%), adaptive knee preload vs.\ matched no-spring baseline, flat ground.}
+\label{tab:cot}
+\begin{tabular}{lrrr}
+\toprule
+Condition & @0\,kg & @2.5\,kg & @5\,kg \\
+\midrule
+Seed 1 & $-16.6$ & $-19.5$ & $-22.8$ \\
+Seed 2 (weak outlier) & $-3.4$ & $-8.3$ & $-6.5$ \\
+Seed 3 & $-13.9$ & $-20.1$ & $-26.7$ \\
+Payload curriculum & $-16.8$ & $-20.4$ & $-22.0$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]\centering
+\includegraphics[width=\columnwidth]{../outputs/figures/cot_vs_load.png}
+\caption{Cost of transport (left; solid = baseline, dashed = adaptive) and its reduction (right) vs.\ payload.
+The benefit grows with load in three of four conditions; seed 2 is a weak outlier.}
+\label{fig:cot}
+\end{figure}
+
+The adaptive preload cuts CoT by \textbf{14--27\% in three of four conditions}, and the reduction \emph{grows
+with payload}---heavier loads raise the support torque the preload offloads. One seed (seed~2) is a weak
+$-3$ to $-8\%$ outlier: with the offload available, that policy spends it on walking faster rather than on
+energy, which the speed-normalized CoT only partly compensates.
+
+\section{Discussion and Limitations}
+We foreground the threats to validity rather than bury them.
+\textbf{(1) Stability cost.} At high load ($\geq$7.5\,kg) the adaptive policy loses some survival (e.g.\ 1070/1500
+at 10\,kg) where the matched baseline holds 1500/1500; the energy win is a low-to-mid-load result.
+\textbf{(2) Realism bound.} The real Go1 carries $\sim$5--10\,kg; the simulator enforces peak but not
+continuous/thermal torque, structure, or balance, so high-load (15--30\,kg) ``walking'' is sim-only. The
+physically meaningful range is 0--6\,kg; the 15--30\,kg regime would belong to a B2-class robot.
+\textbf{(3) No-regeneration dependence.} The win lives partly in dissipated braking energy; with regeneration it
+shrinks ($\sim$24\% sensitivity). No-regen is justified by back-EMF physics for these drivers but is not a
+measured spec.
+\textbf{(4) Absolute energy is a band.} We lack measured motor $K_t,R$; relative CoT comparisons are robust, but
+absolute watts are uncertain.
+\textbf{(5) Energy-naive baseline and rough terrain.} The baseline does not itself optimize energy hard, and on
+rough (2.5\,cm) terrain both arms are unstable ($\sim$40\% survival), so the win there is inconclusive.
+
+\section{Conclusion}
+Whether a parallel elastic element saves electrical energy in a legged robot is decided by the gear ratio: it is
+harmful on a high-gear humanoid and beneficial on a low-gear quadruped. For the low-gear Go1 we demonstrate a
+14--27\% cost-of-transport reduction from a constant knee preload, and a sensor-free, per-leg, self-tuning
+adaptive preload that carries the win into blind load-carrying with the benefit growing with load. The mechanism
+is simple and deployable; its boundary, its element form, and its high-load stability cost are characterized.
+Future work runs the same idea on a \emph{running} quadruped, where impact braking energy is largest and a
+one-sided stiffness spring may add a recovery channel a constant preload cannot.
+
+\begin{thebibliography}{1}
+\bibitem{plooij2012} M.~Plooij and M.~Wisse, ``A novel spring mechanism to reduce energy consumption of robotic
+arms,'' \emph{IEEE/RSJ IROS}, 2012.
+\bibitem{bjelonic2023} F.~Bjelonic \emph{et al.}, ``Learning-based design and control for quadrupedal robots with
+parallel-elastic actuators,'' \emph{IEEE RA-L}, 2023.
+\bibitem{bjelonic2022} F.~Bjelonic \emph{et al.}, ``Reinforcement learning for elastic quadrupedal locomotion,''
+2022.
+\bibitem{belov2024} Belov, Osokin \emph{et al.}, ``Torque-squared-optimal parallel elastic elements for a robotic
+leg,'' Skoltech, 2024.
+% TODO: add references from docs/literature_review.md
+\end{thebibliography}
+
+\end{document}
