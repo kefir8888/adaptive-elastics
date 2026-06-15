@@ -133,3 +133,20 @@ Kt) so lead with the **relative %** and Bjelonic's gear-invariant ∫τ²dt.
 - **Next:** build the **adaptive-preload spring run** (the mechanism above) → compare to the
   baseline as **payload-capacity + energy-vs-load curves**. The headline is the capacity
   curve: where the baseline tops out vs how far the adaptive preload extends it.
+
+## Capacity realism + planned beyond-30 kg experiments (NOT YET RUN — 2026-06-16)
+**Real payload capacity (grounding):**
+- **Unitree Go1** (12 kg robot, our "dog"): ~3–5 kg recommended continuous, **~10 kg max rated**.
+- **Unitree B2** (60 kg industrial quadruped): **40 kg walking**, 120 kg standing, 6 m/s run.
+
+**The validity problem:** the warm-started sim Go1 walks at **30 kg (2.5× body mass)** with no failure — but that is **3–6× the real Go1's rated max**, i.e. physically impossible. The plain MJX model's actuator *peak*-torque limits are strong enough to walk at 30 kg, but the **real binding constraints are CONTINUOUS (thermal) torque, structure, and balance**, which the sim does not enforce. So:
+- The **physically-meaningful Go1 load study is 0–6 kg** (0–10 kg at the rated edge) — where our −14 to −27 % CoT result lives.
+- **15–40 kg is realistic only for a B2-class robot**, NOT a Go1.
+- The "capacity-to-failure" ladder is therefore **not meaningful in plain sim** (it doesn't fail until unphysical loads); the spring/baseline 20–30 kg energy numbers are sim-only and must be labeled as such.
+
+**Planned beyond-30 kg / high-load experiments (do NOT run yet):**
+1. **Thermal/continuous-torque-limited capacity (the strong, physical one).** Impose the real *continuous* (thermal) joint-torque limit — far below peak — as a cap (or via an `I²R`/thermal budget). The Go1 then fails at a realistic ~5–10 kg, and the constant knee preload, which offloads exactly the *mean* (continuous, thermal-limiting) torque, should **extend the thermal-limited carry capacity** — tying the capacity claim directly to the ohmic/thermal mechanism that is the whole study. Highest value: makes "capacity" physical AND mechanistic.
+2. **Sim failure ceiling (characterization only).** Push 35/40/50 kg until the plain-sim Go1 actually fails (peak torque or balance), explicitly labeled *sim-only*, to bound the model + the spring's sim-extension. Cheap (warm-start ladder), low scientific weight.
+3. **B2-class reframe.** Run the 15–40 kg study on a **big-quadruped** model where those loads are real. Playground has Spot (~14 kg payload) but no B2; would need a B2 MJX model. This is where 30 kg actually belongs.
+
+**Eval fix needed first:** `go1_capacity.py` caps its sweep at 15 kg — extend it to evaluate AT the trained payload (20/25/30+) with per-payload survival + forward speed, to confirm genuine walking (not a high-tracking stand) before trusting any high-load number.
