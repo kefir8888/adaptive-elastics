@@ -8,6 +8,35 @@ happened, what's open/broken, and the single next step.
 
 ---
 
+## 2026-06-16 — Load study RESULTS (reconciled) + autonomous audit/research session
+**The Go1 load-carrying program is DONE and POSITIVE (this is the headline that was missing from the docs).**
+Cost-of-transport reduction (electrical W per m/s), adaptive per-leg knee preload vs matched no-spring, flat:
+| | @0 kg | @2.5 kg | @5 kg |
+|--|--|--|--|
+| seed 1 | −16.6% | −19.5% | −22.8% |
+| seed 2 | −3.4% | −8.3% | −6.5% (weak outlier) |
+| seed 3 | −13.9% | −20.1% | −26.7% |
+| curriculum | −16.8% | −20.4% | −22.0% |
+- **Reconciled headline: −14 to −27% CoT in 3 of 4 conditions, GROWING with load; seed 2 a weak −3 to −8%
+  outlier.** The earlier docs quoted 3 different bands (−16.7/−19.7, −17/−20, −14/−27) — now reconciled from
+  the local capacity logs. Figure: `outputs/figures/cot_vs_load.png`.
+- **STABILITY CAVEAT (was unreported):** the adaptive loses survival at high load (e.g. curr15 1070/1500 @10 kg;
+  seed 2 871/1500 @5 kg) where the matched baseline holds 1500/1500. The energy win is low-to-mid load.
+- **CAPACITY REALISM (validity catch):** the warm-started sim Go1 "walks" at 30 kg, but the real Go1 carries
+  ~5–10 kg max — plain sim enforces peak, not continuous/thermal torque or balance. 15–30 kg is sim-only; the
+  defensible range is 0–6 kg. Beyond-30 kg experiments planned but NOT run (thermal-limit / B2-class).
+- **Rough terrain:** energy win survives on 2.5 cm (CoT −10 to −19%) but ~40% survival for BOTH arms (hard task);
+  full 5 cm inconclusive, dropped.
+- **G1 RUNNING — two failed attempts** (a [0,3] from-scratch collapse to 0.85 m/s; a curriculum+reward-redesign
+  that destabilized it). Playground G1 env structurally resists flight. G1 running = long-shot. Pivoted the
+  knee-spring-for-running idea to the **DOG** (committed; design in `docs/dog_running_design.md`).
+- **Autonomous audit/research session:** workflows wrote `docs/{code_audit,docs_audit,weak_spots,research_patterns}.md`
+  + (running) `{g1_running_research,literature_review,gpu_cost_crypto}.md`; built `docs/presentation.md`; rewrote
+  README to current state; drafting the IEEE Access paper in `paper/`. Code audit: energy model CORRECT, but
+  rollout loop duplicated 5–6× + the adaptive controller 2× (refactor needed); 1 latent aliasing bug.
+- **State:** GPU box OFF, all results synced (26 run dirs, 10 eval logs, 4 videos local). **Next:** provision a
+  box, run the dog-running knee-spring experiment (gate on flight fraction), and refactor the duplicated rollout.
+
 ## 2026-06-15 (session 2) — Adaptive per-leg mechanism VALIDATED, but payload-DR broke locomotion
 - **The adaptive per-leg preload mechanism WORKS (validated):** `PreloadDRWrapper` (env.py)
   trains fine under vmap/jit (reward parity 18.2 vs baseline 18); the clipped-proportional
