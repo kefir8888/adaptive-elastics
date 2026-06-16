@@ -8,6 +8,22 @@ happened, what's open/broken, and the single next step.
 
 ---
 
+## 2026-06-16 (wrap) — Audit/research/paper session + refactor + dog-run plan + merge to main
+- **Autonomous audit/research/writing session** (3 workflows, ~20 subagents, ~1.2 M subagent tokens, ~40 min
+  compute): wrote `docs/{code_audit,docs_audit,weak_spots,research_patterns,literature_review,
+  g1_running_research,gpu_cost_crypto}.md`, `docs/presentation.md` (+`outputs/slides/presentation.pptx`),
+  `paper/paper.tex` (IEEE Access draft), `outputs/figures/cot_vs_load.png`; reconciled the headline to CoT.
+- **Refactor:** extracted the adaptive controller to `src/pea/control.py` (was verbatim in `go1_capacity.py`
+  + `render_walk.py` — the audit's video-vs-curve divergence risk). Verified behavior-preserving.
+- **README:** added a *Methodology & process discipline* section (the 7 pattern fixes); refreshed the docs map.
+- **Dog-running plan agreed:** flat, **no-load run first** (S1–S5, gate on a measured flight fraction), then a
+  **load-carrying running** extension at **0 / 2.5 / 5 kg** (`configs/go1_run_s1.yaml`, `go1_run_s2.yaml`
+  prepared + smoke-tested). NEEDS A BOX to run; warm-start checkpoint was lost with the deleted box.
+- **G1 running: deprioritized** (long-shot; needs an env subclass + ideally reference-motion/AMP — see below).
+- **Merged `experiments-2026-06-14` → `main`.** Next infra: new GPU provider (Vast.ai/RunPod) + crypto (USDT-TRC20).
+- **NEXT:** provision a box on the new provider; run the dog-running experiment — **recommended in a FRESH agent**
+  (the docs now support a lossless handoff: README → JOURNAL → dog_running_design.md).
+
 ## 2026-06-16 — Load study RESULTS (reconciled) + autonomous audit/research session
 **The Go1 load-carrying program is DONE and POSITIVE (this is the headline that was missing from the docs).**
 Cost-of-transport reduction (electrical W per m/s), adaptive per-leg knee preload vs matched no-spring, flat:

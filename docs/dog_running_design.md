@@ -32,6 +32,14 @@ energy exchange a constant torque CANNOT capture** (zero slope = no storage). So
 or both. Keep `k` modest (~50–70 % of the braking work) and **one-sided** so it does not fight swing-leg
 flexion (the G1 reversal failure mode).
 
+## Loads — the +2.5 / +5 kg extension (agreed 2026-06-16)
+Get the no-load RUN working first (S1–S5). Then extend to LOAD-CARRYING running, mirroring the validated
+walking load study: retrain the no-spring and spring arms with **payload DR (0–5 kg)** + the adaptive per-leg
+preload, and evaluate at **0, 2.5, 5 kg**. This tests whether the running-spring energy win (and the
+load-adaptive preload) holds at load — the natural unification of the running study with the walking
+load-carrying result. Keep payloads **≤5 kg** (the real Go1's realistic range; do NOT repeat the 30 kg
+sim-fantasy). Report CoT per load with per-seed spread and the survival/stability cost.
+
 ## Parity (valid comparison)
 The electrical-reward wrapper stays ON and **byte-identical** across arms (`energy_reward_weight -1e-4`,
 `energy_motor go1_knee`); same schedule, tweaks, and seeds; the spring is the ONLY between-condition difference.

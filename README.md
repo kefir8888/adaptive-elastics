@@ -46,6 +46,28 @@ walking constant-preload. Designed; gated on whether a true all-feet-off phase a
 
 **Infrastructure:** GPU box is **off** (all results synced locally); no new training until a box is provisioned.
 
+## Methodology & process discipline
+Hard-won rules from the project's *own* failures (full analysis in `docs/research_patterns.md`). Follow them;
+most wasted time and every retracted claim traces to breaking one of these.
+1. **Cheap feasibility probe before every full RL run.** The dominant time-sink was the
+   train→collapse→diagnose→retrain loop. Probe first — a short rollout, a torque-budget check, a narrow-range
+   smoke — before committing a multi-hour run.
+2. **Check physical realism *before* choosing ranges.** The 0–25 kg payload (collapsed training) and the 30 kg
+   "capacity" (unphysical for a 12 kg robot) both came from ranges set before checking the real robot's limits.
+   Ground payloads/torques in the hardware spec first.
+3. **One change per training stage; warm-start and gate.** Both G1-running failures changed the command range
+   *and* several rewards at once, from scratch. Change one thing, warm-start from the last good policy, and gate
+   on a measured metric before the next stage.
+4. **Keep eval scripts in lockstep with the experiment.** The capacity sweep was capped at 15 kg while policies
+   trained past it; `tracking_lin_vel` was twice mistaken for forward speed. Evaluate *at* the trained condition,
+   and measure the quantity you claim (forward speed, not tracking reward).
+5. **Sync after every run; never halt before syncing.** A trained baseline was lost when a box was deleted
+   mid-sync. rsync results off the box after each run.
+6. **Report cost of transport (W ÷ m/s), with per-seed spread and the stability cost — never raw watts.** The
+   spring makes the policy walk faster, so watts confound speed; CoT is the only fair metric. Report the band
+   across seeds and the survival/stability cost, not a single optimistic number.
+7. **One active direction at a time.** Six parallel directions diluted focus; commit (currently: the running dog).
+
 ## Docs map
 - `CLAUDE.md` — full experiment design + project rules (**start here for design**).
 - `docs/JOURNAL.md` — dated session history (**start here for "what happened"**).
@@ -53,9 +75,10 @@ walking constant-preload. Designed; gated on whether a true all-feet-off phase a
 - `docs/load_program.md` — load-carrying adaptive-preload program + the capacity-realism analysis.
 - `docs/g1_running_design.md`, `docs/dog_running_design.md` — the running-spring designs (G1 hard, dog active).
 - `docs/directions.md`, `docs/taxonomy.md`, `docs/running_program.md` — direction / cross-morphology maps.
-- *Autonomous-session outputs (being generated):* `docs/code_audit.md`, `docs/docs_audit.md`,
-  `docs/weak_spots.md`, `docs/research_patterns.md`, `docs/literature_review.md`,
-  `docs/g1_running_research.md`, `docs/gpu_cost_crypto.md`, `docs/presentation.md`, and `paper/` (IEEE Access draft).
+- **Audit / research / writing outputs:** `docs/code_audit.md`, `docs/docs_audit.md`, `docs/weak_spots.md`,
+  `docs/research_patterns.md`, `docs/literature_review.md` (74 cites), `docs/g1_running_research.md`,
+  `docs/gpu_cost_crypto.md`, `docs/presentation.md` (+ `outputs/slides/presentation.pptx`), `paper/paper.tex`
+  (IEEE Access draft), `outputs/figures/cot_vs_load.png`.
 
 ## Stack & layout
 MuJoCo Playground (Go1/G1 joystick envs) + MJX (GPU) for training on a rented H100; CPU MuJoCo/JAX locally for
