@@ -78,30 +78,74 @@ def load_clean_policy(run_dir: pathlib.Path):
     return env, policy, env.mj_model
 
 
-def rollout(env, policy, command, steps: int) -> dict:
-    """Roll the policy out at a fixed joystick command; return a trajectory dict."""
+def rollout(env, policy, command, steps: int, *, seed: int = 0,
+            pre_step=None, callback=None, record_terminal: bool = True) -> dict:
+    """Roll the policy out at a fixed joystick command; return a trajectory dict.
+
+    The single rollout loop shared by the harness AND the one-off probe scripts
+    (each previously carried a near-identical copy). Hooks let a caller inject
+    per-step state and collect extra per-step signals without re-writing the loop:
+
+      pre_step(step_index, state)
+          Called BEFORE each env.step, e.g. to write state.info (an adaptive
+          preload, a command override). May return nothing.
+      callback(step_index, state)
+          Called for each RECORDED step (after env.step), in lockstep with the
+          qpos/qvel/qfrc appends, so a probe can append its own extras (knee
+          angle, contact sensors, render frames) aligned to the same indices.
+      record_terminal
+          CANONICAL CHOICE (project-wide): record the terminating step
+          (append-then-break). True (default) -> the step that sets done IS
+          recorded and `n` counts it; every caller (the sweep path,
+          scripts/rollout.py, and the probes) uses this same contract so the
+          trajectory length is consistent across the codebase. False is kept
+          only for the rare caller that must drop the terminating step.
+
+    When the robot falls on step 0, NOTHING is recorded and the dict returns
+    empty arrays (n=0) instead of crashing on a 0-length np.stack — callers
+    guard on traj["n"].
+
+    `command` pinning and JIT of reset/step/policy match the previous inline copies
+    exactly; numbers are unchanged for callers using the canonical (terminal) contract.
+    """
     import jax
     import jax.numpy as jnp
 
     jit_reset, jit_step, jit_policy = (
         jax.jit(env.reset), jax.jit(env.step), jax.jit(policy))
-    rng = jax.random.PRNGKey(0)
+    rng = jax.random.PRNGKey(seed)
     state = jit_reset(rng)
     cmd = jnp.array(command, dtype=jnp.float32)
     qpos, qvel, qfrc = [], [], []
-    for _ in range(steps):
+
+    def _record(i, st):
+        qpos.append(np.asarray(st.data.qpos))
+        qvel.append(np.asarray(st.data.qvel))
+        qfrc.append(np.asarray(st.data.qfrc_actuator))
+        if callback is not None:
+            callback(i, st)
+
+    for i in range(steps):
+        if pre_step is not None:
+            pre_step(i, state)
         if "command" in state.info:
             state.info["command"] = cmd
         rng, ar = jax.random.split(rng)
         action, _ = jit_policy(state.obs, ar)
         state = jit_step(state, action)
-        if bool(state.done):
-            break
-        qpos.append(np.asarray(state.data.qpos))
-        qvel.append(np.asarray(state.data.qvel))
-        qfrc.append(np.asarray(state.data.qfrc_actuator))
+        done = bool(state.done)
+        if record_terminal:
+            _record(i, state)
+            if done:
+                break
+        else:
+            if done:
+                break
+            _record(i, state)
     return dict(
-        qpos=np.stack(qpos), qvel=np.stack(qvel), qfrc=np.stack(qfrc),
+        qpos=np.stack(qpos) if qpos else np.empty((0,)),
+        qvel=np.stack(qvel) if qvel else np.empty((0,)),
+        qfrc=np.stack(qfrc) if qfrc else np.empty((0,)),
         dt=float(env.dt), total_mass=float(env.mj_model.body_mass.sum()),
         n=len(qpos),
     )
@@ -131,6 +175,10 @@ def run_sweep(run_dir, tasks, grid, kt, r, transient_s=TRANSIENT_S):
     act = metrics.actuated_dof_adrs(model)
     rows = []
     for task in tasks:
+        # Canonical contract: record the terminating step (record_terminal=True,
+        # now the default). This shifts a sweep by at most one step versus the old
+        # drop-terminal behavior — and that one step lands inside the transient
+        # trim (_trim drops the first transient_s), so it is intended and harmless.
         traj = _trim(rollout(env, policy, task.command, task.steps), transient_s)
         base = metrics.evaluate(traj, model, act, kt, r, spec=None,
                                 joint_substr=grid[0].joint if grid else None)

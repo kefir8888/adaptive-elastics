@@ -7,10 +7,8 @@ Usage: g1_run_probe.py <run_dir> [steps]
 import sys
 import pathlib
 import numpy as np
-import jax
-import jax.numpy as jnp
 
-from pea import config as cfg_lib, energy, metrics, policy as policy_lib
+from pea import config as cfg_lib, energy, experiment, metrics, policy as policy_lib
 from pea.env import make_env, joints_by_substring
 
 run = pathlib.Path(sys.argv[1])
@@ -26,35 +24,28 @@ mc = energy.motor_constants(cfg.energy_motor)
 kt, r = mc.kt, mc.r
 dt = float(env.dt)
 pol = policy_lib.load_policy(env, cfg, run / "policy_params", deterministic=True)
-jr, js, jp = jax.jit(env.reset), jax.jit(env.step), jax.jit(pol)
 print(f"# {run.name}  knee joints {list(kn.keys())}", flush=True)
 
 for vx in [1.0, 1.5, 2.0, 2.5, 3.0]:
-    cmd = jnp.array([vx, 0.0, 0.0], dtype=jnp.float32)
-    rng = jax.random.PRNGKey(0)
-    st = jr(rng)
-    QP, KQ, KT, QV, QF, n = [], [], [], [], [], 0
-    for i in range(STEPS):
-        if "command" in st.info:
-            st.info["command"] = cmd
-        rng, ar = jax.random.split(rng)
-        a, _ = jp(st.obs, ar)
-        st = js(st, a)
-        n += 1
-        QP.append(np.asarray(st.data.qpos))
+    # Per-step knee angle (KQ) and knee torque (KTAU) collected via the rollout
+    # callback so they align index-for-index with the harness qpos/qvel/qfrc.
+    KQ, KTAU = [], []
+
+    def _probe(i, st, KQ=KQ, KTAU=KTAU):
         KQ.append(np.asarray(st.data.qpos[qadr]))
-        KT.append(np.asarray(st.data.qfrc_actuator[dadr]))
-        QV.append(np.asarray(st.data.qvel))
-        QF.append(np.asarray(st.data.qfrc_actuator))
-        if bool(st.done):
-            break
-    QP = np.stack(QP)
+        KTAU.append(np.asarray(st.data.qfrc_actuator[dadr]))
+
+    traj = experiment.rollout(env, pol, (vx, 0.0, 0.0), STEPS,
+                              callback=_probe, record_terminal=True)
+    QP, QV, QF, n = traj["qpos"], traj["qvel"], traj["qfrc"], traj["n"]
     w0 = n // 2
-    spd = float(np.linalg.norm(QP[-1][:2] - QP[w0][:2]) / max((n - w0) * dt, 1e-9))
+    # P0 fix: a window from index w0 to n-1 spans (n-1-w0) sample intervals, so its
+    # duration is (n-1-w0)*dt -- matches metrics.performance (dur = (len-1)*dt).
+    spd = float(np.linalg.norm(QP[-1][:2] - QP[w0][:2]) / max((n - 1 - w0) * dt, 1e-9))
     kq = np.stack(KQ)[w0:]
-    ktq = np.stack(KT)[w0:]
+    ktq = np.stack(KTAU)[w0:]
     elec = metrics.power_breakdown(
-        np.stack(QF)[w0:][:, act], np.stack(QV)[w0:][:, act], dt, kt, r
+        QF[w0:][:, act], QV[w0:][:, act], dt, kt, r
     )["elec_noregen"]
     print(
         f"cmd {vx:.1f} m/s: survived {n}/{STEPS}  speed {spd:.2f} m/s  elec {elec:5.0f} W  "

@@ -1,0 +1,23 @@
+# Go1 RUNNING — Stage 0 (the WALKER, trained from scratch). This is the warm-start SOURCE for S1.
+# The original walker checkpoint was lost with a deleted GPU box, so S0 retrains a clean flat Go1
+# walker first. Stock rewards, NO spring, NO payload (payload_max_kg defaults to 0 -> stock per-env
+# DR), so it is a plain fast walker the runner stages can warm-start from. See docs/NEXT_SESSION.md.
+#
+# NOTE on naming: docs name the S0 source "go1_baseline_payload.yaml with payload_max_kg: 0". That
+# file already exists but carries payload_max_kg: 10 (it is the load-study control, NOT a clean
+# walker), so it is NOT reused here — this dedicated config is the unambiguous S0 source. The stock
+# go1_baseline.yaml is an equivalent payload-0 walker if you prefer it.
+#
+# Train it directly (no --restore; from scratch):
+#   pea-train --config configs/go1_run_s0_walker.yaml
+name: go1_run_s0_walker
+env_name: Go1JoystickFlatTerrain
+seed: 1
+domain_randomization: true
+payload_max_kg: 0.0        # explicit: a clean walker, no payload (stock per-env DR)
+num_timesteps: 200000000   # ~200 M, from scratch (design: S0 ~200 M)
+spring:
+  kind: none
+energy_reward_weight: -1.0e-4
+energy_motor: go1_knee
+ppo: {}

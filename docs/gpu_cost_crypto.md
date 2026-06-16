@@ -1,5 +1,13 @@
 # Cheaper GPU cloud + crypto payment from Russia
 
+> **⚠ SUPERSEDED (2026-06-16) — DO NOT use this as the live plan.** The decision is to stay on
+> **immers.cloud, paid in rubles**. Crypto-funded Western providers (**Vast.ai / RunPod /
+> Spheron**) are **dropped**: their "crypto" routes through KYC + sanctions-screening processors
+> (BitPay / Crypto.com) that **block Russian users**, and the ~$5–10 saving is not worth the
+> hassle for a **~$18–20** experiment. **Revisit crypto only** if a large final batch of
+> confirmation seeds is ever needed. The body below is kept as a **historical price/payment
+> reference** and is **stale** — the current infrastructure plan is in `docs/NEXT_SESSION.md`.
+
 **Purpose.** We currently rent an immers.cloud H100 PCIe at **342 RUB/hr**. This
 document (a) compares cheaper Western GPU clouds for H100 / A100 / RTX-4090-class
 training and (b), since sanctions block most Russian cards, gives a step-by-step

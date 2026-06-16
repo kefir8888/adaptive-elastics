@@ -8,6 +8,35 @@ happened, what's open/broken, and the single next step.
 
 ---
 
+## 2026-06-16 (session 2) — Code/checkpoint audit, iron-loss bound, doc reconciliation, dog-run prep
+- **Current state:** Go1 load-carrying WALKING program **DONE + positive** (CoT −14 to −27 % in 3 of 4
+  conditions, growing with load; seed 2 a weak −3 to −8 % outlier; survival degrades >~7.5 kg). G1 walking
+  spring **DONE + negative** (in-loop +7.4 %). **ACTIVE = the Go1 dog-running knee-spring experiment**
+  (`docs/NEXT_SESSION.md`, `docs/dog_running_design.md`). GPU box OFF.
+- **Checkpoint backup:** all training runs mirrored to the Drive `pea_runs` folder (134 MB) and catalogued
+  in the new **`docs/checkpoints.md`** (every run + purpose + Drive/local location + has-checkpoint flag).
+- **Full code audit** confirmed the energy model is correct; the adaptive controller is now in `src/pea/control.py`.
+- **Iron (core) loss quantified** (was only qualitative). Upper-bound estimate: G1 whole-body ~25–35 W likely
+  (14–20 % of the ~178 W budget), worst case ~58–65 W (33–37 %); Go1 negligible (~3–5 W, <5 %). Iron loss grows
+  with motor *speed*, so a torque-offloading spring can't cut it; including it nudges G1 walking offline −2.9 %
+  → −2.1 to −2.4 % and Go1 −14 to −27 % → ~−13.3 to −26.8 % (essentially unchanged). **All headline conclusions
+  survive a full iron-loss accounting.** Estimate only — one no-load spin-down test would pin it. (`RESULTS.md`.)
+- **Doc reconciliation:** the docs had drifted ~1.5 sessions and contradicted each other. Reconciled CLAUDE.md,
+  README, RESULTS.md (Milestone 4 marked DONE/negative; Go1 load results subsection + per-seed CoT table; iron-loss
+  caveat; the R/Kt² "10× too optimistic" alarm **retracted** as a 100× arithmetic error — 0.0025 is the optimistic
+  edge of a defensible 0.001–0.020 band), PLAN.md (superseded banner), load_program.md, directions.md, gpu_cost_crypto.md
+  (superseded banner), JOURNAL. Fixed gear statements (G1 knee 22.5:1, **hip-pitch 14.3:1**, dispute unresolved but
+  ohmic stays ~4 %; Berkeley **9:1** not 9.1; Spot hip **~51:1** not ~80–160:1).
+- **New project rule + glossary:** added "write plainly — define every term on first use, no unexplained jargon"
+  (docs, code comments, manuscript) and created **`docs/glossary.md`** (plain-language definitions), linked from
+  CLAUDE.md and README.
+- **Infrastructure decided:** stay on **immers.cloud, rubles**; crypto/Vast/RunPod/Spheron dropped (KYC-blocked from
+  Russia; revisit only for a large final seed batch). User provisions + pastes SSH; agent drives and destroys the
+  box; sync after every run.
+- **NEXT (single step):** the user provisions an immers box; the agent runs the staged dog-running experiment
+  (S0 walker → S1 trot → S2 run+flight → spring conditions), **gating on the measured flight fraction** before
+  spending on the spring arms.
+
 ## 2026-06-16 (wrap) — Audit/research/paper session + refactor + dog-run plan + merge to main
 - **Autonomous audit/research/writing session** (3 workflows, ~20 subagents, ~1.2 M subagent tokens, ~40 min
   compute): wrote `docs/{code_audit,docs_audit,weak_spots,research_patterns,literature_review,
@@ -20,7 +49,9 @@ happened, what's open/broken, and the single next step.
   **load-carrying running** extension at **0 / 2.5 / 5 kg** (`configs/go1_run_s1.yaml`, `go1_run_s2.yaml`
   prepared + smoke-tested). NEEDS A BOX to run; warm-start checkpoint was lost with the deleted box.
 - **G1 running: deprioritized** (long-shot; needs an env subclass + ideally reference-motion/AMP — see below).
-- **Merged `experiments-2026-06-14` → `main`.** Next infra: new GPU provider (Vast.ai/RunPod) + crypto (USDT-TRC20).
+- **Merged `experiments-2026-06-14` → `main`.** Infra decision (2026-06-16): stay on **immers.cloud, paid in
+  rubles**; crypto-funded Western providers (Vast/RunPod/Spheron) **dropped** (KYC/sanctions-blocked from Russia,
+  not worth it for a ~$18–20 experiment).
 - **NEXT:** provision a box on the new provider; run the dog-running experiment — **recommended in a FRESH agent**
   (the docs now support a lossless handoff: README → JOURNAL → dog_running_design.md).
 
@@ -224,7 +255,7 @@ Cost-of-transport reduction (electrical W per m/s), adaptive per-leg knee preloa
   (Berkeley Humanoid is not a product, not thermally efficient) — lower priority.
   **SKIP (4)** manipulation/static (nothing surprising; probe confirms ~0 on G1).
 - **Key facts:** G1 22.5:1 is near the LOW end of *commercial* humanoids (most are
-  harmonic 100:1+); low-gear = research/QDD (Berkeley 9.1:1, MIT Cheetah/Go ~6:1).
+  harmonic 100:1+); low-gear = research/QDD (Berkeley 9:1 [9.1:1 is HECTOR], MIT Cheetah/Go ~6:1).
   Corrections: ANYmal is 100:1 (not low-gear); "−31 % joint electrical" is STEPPR,
   not Bjelonic (Bjelonic = +33 % torque-square, −30 % peak, +11 % runtime).
 - **Open / broken:** running upside is theoretical until a running policy exists;

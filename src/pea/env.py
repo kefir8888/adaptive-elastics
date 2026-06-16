@@ -16,6 +16,21 @@ from pea import springs
 from pea.config import RunConfig
 
 
+def scale_hfield(hfield_size, factor: float):
+    """Scale rough-terrain bump heights by `factor`, IN PLACE on `hfield_size`.
+
+    Single source of truth for the terrain-roughness scaling used by BOTH the
+    physics model (make_env) and the render model (render_walk.py), which used to
+    carry separate copies that agreed only by coincidence. heights =
+    hfield_data * hfield_size[:,2], so scaling the elevation column (index 2)
+    scales every bump. `hfield_size` is the model's (N,4) size array (a numpy
+    array — either mj_model.hfield_size directly, or a writable np.array copy of
+    the MJX model's). Mutates and returns it.
+    """
+    hfield_size[:, 2] *= factor
+    return hfield_size
+
+
 def make_env(cfg: RunConfig):
     env_cfg = registry.get_default_config(cfg.env_name)
     env_cfg.impl = cfg.impl  # 'jax', not the broken Warp default
@@ -33,19 +48,25 @@ def make_env(cfg: RunConfig):
     env = registry.load(cfg.env_name, config=env_cfg)
     if cfg.terrain_height_scale != 1.0 and getattr(env, "_mjx_model", None) is not None \
             and int(env._mjx_model.nhfield) > 0:
-        # Scale rough-terrain bump heights (hfield elevation) for an easier-terrain start /
-        # roughness curriculum. heights = hfield_data * hfield_size[:,2], so scaling the
-        # elevation column scales every bump. mjx_model is a read-only property -> set the
-        # backing field (same pattern as go1_capacity.py's payload-mass injection).
+        # Scale rough-terrain bump heights for an easier-terrain start / roughness
+        # curriculum. mjx_model is a read-only property -> set the backing field
+        # (same pattern as go1_capacity.py's payload-mass injection). The scaling
+        # math lives in scale_hfield (shared with render_walk.py).
         import numpy as np
         m = env._mjx_model
         hs = np.array(m.hfield_size)            # static (numpy) field, not a traced jax array
-        hs[:, 2] = hs[:, 2] * cfg.terrain_height_scale
+        scale_hfield(hs, cfg.terrain_height_scale)
         env._mjx_model = m.replace(hfield_size=hs)
     if cfg.spring.kind == "preload_dr":
         # per-leg constant knee preload, randomized U(0, tau0) per episode (preload DR):
         # the policy learns robust-to-any-preload; the adaptive controller sets it at eval.
         env = PreloadDRWrapper(env, cfg.spring.joint, cfg.spring.tau0)
+    elif cfg.spring.kind == "one_sided_linear" and cfg.spring.k_dr:
+        # one-sided stiffness spring with the stiffness k randomized per episode
+        # (OPTIONAL robustness knob; default OFF -> the branch below uses a fixed k).
+        env = OneSidedStiffnessDRWrapper(env, springs.from_config(cfg.spring),
+                                         cfg.spring.joint,
+                                         cfg.spring.k_dr_min, cfg.spring.k_dr_max)
     else:
         spec = springs.from_config(cfg.spring)
         if spec is not None:
@@ -55,7 +76,22 @@ def make_env(cfg: RunConfig):
     return env
 
 
-class ElectricalRewardWrapper:
+class _EnvWrapper:
+    """Mixin for the env wrappers: a `base_env` accessor that recurses through the
+    `_env` chain to the innermost (base) env. Base case: the innermost env has no
+    `_env`, so the loop stops and returns it. Replaces the
+    `while hasattr(x, '_env'): x = x._env` idiom that scripts open-coded.
+    """
+
+    @property
+    def base_env(self):
+        env = self
+        while hasattr(env, "_env"):
+            env = env._env
+        return env
+
+
+class ElectricalRewardWrapper(_EnvWrapper):
     """Adds a TOTAL-ELECTRICAL energy penalty to the reward, in both conditions.
 
     Per actuated DoF the electrical power is max(tau*omega + (tau/Kt)^2*R, 0) —
@@ -69,6 +105,8 @@ class ElectricalRewardWrapper:
     """
 
     def __init__(self, env, weight: float, motor: str = "g1"):
+        import jax.numpy as jnp
+
         from pea.energy import motor_constants
 
         mc = motor_constants(motor)
@@ -76,13 +114,22 @@ class ElectricalRewardWrapper:
         self._weight = float(weight)
         self._kt = mc.kt
         self._r = mc.r
+        # Same actuated-DoF rule as metrics.actuated_dof_adrs (DoFs past the 6
+        # free-base DoFs), computed once. Identical to the old [..., 6:] slice on
+        # G1/Go1 (so reward numbers are unchanged), but correct for a model with
+        # an unactuated non-base joint.
+        m = env.mj_model
+        self._act = jnp.array(
+            [int(m.jnt_dofadr[j]) for j in range(m.njnt)
+             if int(m.jnt_dofadr[j]) >= 6]
+        )
 
     def step(self, state, action):
         import jax.numpy as jnp
 
         state = self._env.step(state, action)
-        tau = state.data.qfrc_actuator[..., 6:]   # actuated DoFs (skip free base)
-        omega = state.data.qvel[..., 6:]
+        tau = state.data.qfrc_actuator[..., self._act]   # actuated DoFs (skip free base)
+        omega = state.data.qvel[..., self._act]
         p_elec = jnp.maximum(tau * omega + (tau / self._kt) ** 2 * self._r, 0.0)
         penalty = self._weight * jnp.sum(p_elec, axis=-1)  # weight < 0 -> a cost
         return state.replace(reward=state.reward + penalty)
@@ -91,7 +138,7 @@ class ElectricalRewardWrapper:
         return getattr(self._env, name)
 
 
-class SpringWrapper:
+class SpringWrapper(_EnvWrapper):
     """Injects tau_spring(theta) at the target joint's DoFs, in parallel with
     the motors.
 
@@ -127,7 +174,7 @@ class SpringWrapper:
         return getattr(self._env, name)
 
 
-class PreloadDRWrapper:
+class PreloadDRWrapper(_EnvWrapper):
     """Per-leg constant knee preload, randomized U(0, max_tau0) per episode (preload DR).
 
     Trains a policy ROBUST to any preload; the adaptive controller (eval) sets the per-leg
@@ -161,6 +208,57 @@ class PreloadDRWrapper:
     def step(self, state, action):
         tau0 = state.info["preload_tau0"]
         qfrc = state.data.qfrc_applied.at[..., self._dof_adr].set(tau0)
+        state = state.replace(data=state.data.replace(qfrc_applied=qfrc))
+        return self._env.step(state, action)
+
+    def __getattr__(self, name):
+        return getattr(self._env, name)
+
+
+class OneSidedStiffnessDRWrapper(_EnvWrapper):
+    """One-sided linear-stiffness knee spring with the stiffness k randomized per episode.
+
+    Mirrors PreloadDRWrapper, but for the one-sided stiffness spring (springs.py
+    kind 'one_sided_linear') and over k instead of the constant preload tau0.
+    Each reset draws one scalar k ~ U(k_min, k_max), stored in state.info['spring_k']
+    (it persists -- the env step mutates info in place). Each step injects the
+    one-sided torque tau = -k*(theta - theta_engage), active only on the engaging
+    side, via qfrc_applied -- so qfrc_actuator stays the MOTOR torque and the
+    energy model correctly excludes the (passive) spring.
+
+    DEFAULT OFF: the experiment sets k from the S3 work-loop, so a single fixed k
+    (the plain SpringWrapper path) is the default; this DR is an OPTIONAL
+    robustness knob enabled with spring.k_dr=true.
+    """
+
+    def __init__(self, env, spec, joint_substr: str, k_min: float, k_max: float):
+        import jax.numpy as jnp
+
+        self._env = env
+        self._spec = spec  # carries the STATIC theta_engage / engage_sign
+        self._k_min = float(k_min)
+        self._k_max = float(k_max)
+        joints = joints_by_substring(env.mj_model, joint_substr)
+        self._qpos_adr = jnp.array([v["qpos_adr"] for v in joints.values()])
+        self._dof_adr = jnp.array([v["dof_adr"] for v in joints.values()])
+
+    def reset(self, rng):
+        import jax
+
+        rng, key = jax.random.split(rng)
+        state = self._env.reset(rng)
+        state.info["spring_k"] = jax.random.uniform(
+            key, (), minval=self._k_min, maxval=self._k_max
+        )
+        return state
+
+    def step(self, state, action):
+        theta = state.data.qpos[..., self._qpos_adr]
+        k = state.info["spring_k"]
+        d = theta - self._spec.theta_engage
+        active = (self._spec.engage_sign * d > 0)
+        tau = -k * d * active                       # traced k, static theta_engage/sign
+        qfrc = state.data.qfrc_applied.at[..., self._dof_adr].set(tau)
         state = state.replace(data=state.data.replace(qfrc_applied=qfrc))
         return self._env.step(state, action)
 

@@ -4,9 +4,11 @@
 > `docs/dog_running_design.md`**. Everything is committed on `main` (current). The GPU box is OFF.
 
 ## Goal
-Test a parallel **KNEE (calf) spring for Go1 RUNNING energy** — the committed direction. The Go1 is the
-low-gear platform where springs pay; running adds a braking-energy-recovery channel a constant preload can't
-capture (so a one-sided *stiffness* spring may beat the walking constant-preload).
+Test a parallel **KNEE (calf) spring for Go1 RUNNING energy** — the committed direction: **apply the same
+recipe that gave the walking −14 to −27 % (an almost-constant, per-leg adaptive preload) to the running gait.**
+The Go1 is the low-gear platform where springs pay. **Try the almost-constant spring first** (simplest to
+manufacture, no clutch). A stiffness spring or a clutch is used only if the baseline work-loop shows the
+constant preload leaves braking energy unrecovered — see the decision rule in `dog_running_design.md`.
 
 ## Infrastructure — immers.cloud, rubles (decided 2026-06-16)
 - **Why:** crypto-from-Russia is KYC-blocked everywhere (Vast → BitPay/Crypto.com; Copperx, Coinbase, etc. all
@@ -32,11 +34,12 @@ capture (so a one-sided *stiffness* spring may beat the walking constant-preload
    - If **no flight** emerges → it's a fast trot; report that honestly (it collapses to the walking win) and stop.
 3. **S3 work-loop** (local CPU, no GPU) — roll out S2, build the calf work-loop; **offset → constant preload**,
    **braking lobe → stiffness**. Decide preload vs stiffness here.
-4. **S4 run + constant preload** — the defensible arm. BUILD a `go1_run_spring_preload.yaml` (preload_dr + the
-   adaptive controller in `src/pea/control.py`).
-5. **S5 run + one-sided stiffness** — the braking-recovery arm.
-   - **⚠ BUILD NEEDED:** a **one-sided linear-stiffness spring kind** in `src/pea/springs.py` (store on flexion,
-     return on extension; `k` modest, strictly one-sided so it doesn't fight swing — the G1 reversal failure mode).
+4. **S4 run + almost-constant per-leg adaptive preload — the spring we try first** (same recipe as walking;
+   simple to manufacture, no clutch). BUILT: `configs/go1_run_spring_preload.yaml` (preload_dr + the adaptive
+   controller in `src/pea/control.py`); set the preload size from the S3 work-loop.
+5. **S5 run + one-sided stiffness — DEFERRED** (run only if S3 shows the constant preload misses braking
+   recovery). BUILT but parked: the `one_sided_linear` kind in `src/pea/springs.py` +
+   `configs/go1_run_spring_onesided.yaml`; its stiffness/engage-angle values await S3. No clutch unless the data forces it.
 6. **S6 second seeds** for the headline arm(s) (match the 2-seed walking standard).
 
 ## Load extension (+2.5 / +5 kg) — after the no-load run works

@@ -8,7 +8,7 @@ caveats in enough detail to write up or reproduce later. Newest milestone last.
 on a high-geared commercial humanoid (G1), but **does** on a low-gear quadruped (Go1).
 **The gear ratio is the crux.**
 
-- **G1 (humanoid, knee/hip 22.5:1).** The knee work loop is offset-dominated (a passive
+- **G1 (humanoid, knee 22.5:1, hip-pitch 14.3:1).** The knee work loop is offset-dominated (a passive
   linear spring degenerates to k=0), so the target moved to the **hip-pitch** (a buildable
   linear spring there captures ~51–60 % of mean-square torque). Post-hoc it looked like a
   win (**−3.84 % whole-body**), but the **in-loop retrain REVERSED it to +7.4 % WORSE**, and
@@ -18,10 +18,12 @@ on a high-geared commercial humanoid (G1), but **does** on a low-gear quadruped 
 - **Go1 (quadruped, 6.33:1).** Ohmic is **54 %** of the budget — the τ² lever is finally
   armed. The calf is *also* offset-dominated (linear spring null, +0.0 %), so the right
   passive element is a **constant knee preload** (τ₀≈3.5 N·m, all four calves). Post-hoc
-  **−14.9 %**, and the **in-loop retrain HELD/IMPROVED it to −16.7 % whole-body electrical
-  with NO stability cost** (4/4 survival): 153.4 → 127.8 W. The gait adapts to *exploit* the
-  offload instead of fighting it. **The one positive result, confirmed across 2 seeds**
-  (−16.7 % and −19.7 % whole-body, both 4/4 stable).
+  **−14.9 %**, and the **in-loop retrain HELD/IMPROVED it** instead of reversing (as the G1
+  did). The gait adapts to *exploit* the offload instead of fighting it. The load-carrying
+  WALKING program (below) is the validated headline: **cost of transport −14 to −27 % in 3 of
+  4 conditions, growing with payload, 3 seeds** (seed 2 a weak −3 to −8 % outlier), with **no
+  stability cost at low-to-mid load but survival degrading above ~7.5 kg**. **The one positive
+  result.**
 
 The whole difference is **gearing + element kind**: low gear arms the ohmic (τ²) lever, and
 a *constant* preload matches the offset-dominated knee work loop and is gait-compatible (no
@@ -132,7 +134,20 @@ retraining (Milestone 4).**
 
 ---
 
-## Milestone 4 — In-loop GO/NO-GO gate (hip-pitch)  ◻ ready, not yet run
+## Milestone 4 — In-loop GO/NO-GO gate (hip-pitch)  ✅ DONE — NEGATIVE (+7.4 %)
+
+**Result (the project's central negative result).** The in-loop hip-pitch linear spring was
+trained (matched retrain: same 80 M init, +120 M more steps, same −5e-4 energy weight in the
+reward, differing *only* by the spring) and it made G1 walking **+7.4 % WORSE**, not better:
+whole-body electrical **151.6 → 162.8 W**, **CoT +8.4 %**, survival **3/4 vs 4/4** for the
+matched no-spring baseline. This **reverses** the optimistic offline (post-hoc) estimate of
+**−3.84 %** — the clearest evidence in the project that an offline analysis on the recorded
+gait can flip sign once the policy is allowed to retrain. The always-on spring absorbs
+hip-pitch braking (9.8 → 4.0 W) but the motor then fights it through the drive phase. The
+effect is robust: a fresh-from-scratch spring run is no better, and a 2×2 cross-condition
+check confirms the retrained spring policy beats a spring-blind one, so it is a real
+co-adaptation outcome, not a bug. Catalogued in `docs/negative_results.md` (NR-2/NR-3). The
+design and arms that produced this gate are documented below.
 
 Scope pivoted from the knee constant element to a **hip-pitch linear spring**
 (see Milestone 2: the knee work loop is offset-dominated, so a passive linear
@@ -158,28 +173,95 @@ post-hoc lead; it is superseded as the in-loop candidate.
   hip-pitch DoFs and a full CPU smoke-train passes end to end through the brax
   pipeline for both arms (`2026-06-13_spring_hip_linear_smoke`,
   `2026-06-13_baseline_gate_smoke`).
-- **To run** (a fresh H100 box, see README "To run Milestone 4"): the calibration
-  sweep (`scripts/calib_sweep.sh`) to pick the energy weight `W`, then
-  `pea-train --config configs/spring_hip_linear.yaml --energy-weight=W` and
-  `pea-train --config configs/baseline_gate.yaml --energy-weight=W` (~1 h each,
-  ~350 ₽), then the best-vs-best comparison on ohmic loss, cost of transport, and
-  total electrical power.
+- **How it was run** (immers.cloud H100, rubles): the calibration sweep
+  (`scripts/calib_sweep.sh`) picked the energy weight, then
+  `pea-train --config configs/spring_hip_linear.yaml` and
+  `pea-train --config configs/baseline_gate.yaml` at the matched weight (~1 h each,
+  ~350 ₽), followed by the best-vs-best comparison on ohmic loss, cost of transport, and
+  total electrical power. Run folders: `2026-06-14_spring_walk_spring_full200` (spring) vs
+  `2026-06-14_walk_baseline_full200` (matched no-spring) — see `docs/checkpoints.md`.
 
 ---
 
+## Go1 load-carrying walking program  ✅ DONE — POSITIVE
+
+This is the project's **headline positive result**. On the low-gear Go1 quadruped (gear
+6.33:1, ohmic ~54 % of the motor electrical budget), an **adaptive per-leg constant knee
+preload** — a near-constant offload torque whose magnitude each leg sets for itself from its
+own measured knee torque, with no load sensor and no payload observation — is compared against
+a **matched no-spring control** (same training, same payload range, the spring is the only
+difference). Full mechanism and design in `docs/load_program.md`.
+
+**Headline metric = cost of transport (CoT)** = electrical watts ÷ forward speed (m/s). It is
+the only fair metric here because the spring lets the policy walk faster, so raw watts confound
+speed; watts alone must always be **speed-matched** before they mean anything. Per-seed CoT
+reduction vs the matched no-spring baseline, at three payloads:
+
+| condition | @0 kg | @2.5 kg | @5 kg |
+|---|--:|--:|--:|
+| seed 1 | −16.6 % | −19.5 % | −22.8 % |
+| seed 2 (weak outlier) | −3.4 % | −8.3 % | −6.5 % |
+| seed 3 | −13.9 % | −20.1 % | −26.7 % |
+| curriculum | −16.8 % | −20.4 % | −22.0 % |
+
+**Reconciled statement:** CoT **−14 to −27 % in 3 of 4 conditions, growing with load; seed 2
+is a weak −3 to −8 % outlier.** (Earlier drafts quoted three different bands — −16.7/−19.7,
+−17/−20, −14/−27 — now reconciled from the local capacity logs to this single CoT-per-seed-
+per-payload definition.) Whole-body electrical at no load: **−9.5 % (seed 1), +0.8 % (seed 2),
+−5.6 % (seed 3)**. Figure: `outputs/figures/cot_vs_load.png`.
+
+**Stability cost (reported honestly).** The adaptive policy **loses survival at high load** —
+down to ~870–1260 of 1500 simulation steps at roughly ≥7.5 kg payload — while the **matched
+no-spring baseline holds 1500/1500**. The honest claim is therefore: **no stability cost at
+low-to-mid load; survival degrades above ~7.5 kg.** The energy win is a low-to-mid-load result,
+not a free lunch at every load.
+
+**Capacity realism.** The plain MJX simulation lets the Go1 "walk" at up to 30 kg, but the real
+Go1 (~12 kg robot) carries ~5–10 kg at most; the sim enforces peak torque but not continuous
+(thermal) torque, structure, or balance. The physically meaningful study is **0–6 (10) kg**,
+where the result above lives; 15–30 kg numbers are sim-only. See `docs/load_program.md`.
+
 ## Motor constants estimated (2026-06-13) — and a sobering implication
 
-Estimated for the 7520-22.5 actuator (hip-pitch and knee share it), joint-side,
+Estimated for the 7520-22.5 actuator (knee gear 22.5:1), joint-side,
 from a deep web search: **Kt ≈ 2.3 N·m/A (2.0–2.7), R ≈ 0.013 Ω (0.009–0.025)**;
 gear-invariant **R/Kt² ≈ 0.0025** is the load-bearing quantity. Estimates only
 (no datasheet/hardware) — report cost of transport as a band, lead with the
 Kt/R-independent ohmic-% reduction. Now in `energy.py` (replacing placeholders).
+(Gear note: the **hip-pitch is 14.3:1**, not 22.5:1 — per `docs/robot_inventory.md`;
+the dispute over the exact hip-pitch ratio is **unresolved** and swings that joint's
+ohmic coefficient ~2.5×, but ohmic stays **~4 %** of the budget either way, so it does
+not change any conclusion here.)
+
+> **Retraction (supersedes an earlier alarm).** An earlier note worried that the
+> code's `R/Kt² ≈ 0.0025` might be "~10× too optimistic / untrustworthy." That alarm
+> is **withdrawn** — it was a **100× arithmetic error** on our side, not a real
+> mismatch. The code value 0.0025 sits at the **optimistic edge of a defensible band
+> (0.001–0.020)**, so it is fine to use. The standing caveat is the honest one: all
+> motor constants (Kt, R) are **estimates** for both robots, so the **relative**
+> spring-vs-no-spring percentage is constant-invariant and safe, but any **absolute**
+> watt or CoT number is a **band, not a publication-grade figure**.
 
 **Implication (important).** With realistic constants, ohmic loss is only **~4 %
 of total electrical energy** (the placeholders made it ~48 %). The 22.5:1 gearing
 lets the motor make 120 N·m at ~50 A, so I²R heating is small. So the original
 "copper loss ∝ τ², cut quadratically" motivation is true but applies to a small
 slice of the budget for a geared humanoid.
+
+**Iron (core) loss caveat — quantified.** The energy model above counts only mechanical
+work (τ·ω) and ohmic heating ((τ/Kt)²·R). It **omits iron loss** — the heat lost in the
+motor's magnetic core (hysteresis + eddy currents). Iron loss grows with **motor speed**,
+not torque, so a torque-offloading spring **cannot reduce it**; including it therefore
+**dilutes** the percentage savings (a fixed saving spread over a larger total). Estimated
+upper bounds: **G1 whole-body iron loss likely ~25–35 W (14–20 % of the ~178 W budget),
+worst case ~58–65 W (33–37 %); Go1 negligible (~3–5 W, < 5 %).** The G1 is hit far harder
+because its high gear spins the rotor about 10× faster than the Go1's, and eddy-current loss
+grows with frequency squared. Effect on the headlines: the G1 walking offline saving shifts
+from −2.9 % to about **−2.1 to −2.4 %**; the Go1 −14 to −27 % shifts to about **−13.3 to
+−26.8 % (essentially unchanged)**. This is an **estimate** — a single no-load spin-down test
+of a real motor would pin it. **Conclusion: every headline conclusion survives a full
+iron-loss accounting** (the G1 stays a small, negative-after-retrain lever; the Go1 stays a
+large positive one).
 
 Offline (post-hoc) hip-pitch linear spring on the baseline, realistic constants:
 **ohmic −51…−59 % (large, small base); total electrical at the hip joint −7…−14 %**.

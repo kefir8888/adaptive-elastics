@@ -21,7 +21,7 @@ import pathlib
 
 import numpy as np
 
-from pea import energy, springs
+from pea import energy, metrics, springs
 from pea.config import load_config
 
 TRANSIENT_S = 2.0  # settle time dropped from all stats
@@ -58,7 +58,7 @@ def posthoc(tr, spring_cfg_path: str) -> None:
     print(
         f"  TOTAL joint electrical: {tot_base:.1f} -> {tot_spring:.1f} J "
         f"({100 * (tot_spring / tot_base - 1):+.1f}%)   "
-        f"[Kt={kt}, R={r} PLACEHOLDER; no-regen]"
+        f"[Kt={kt}, R={r} estimate; no-regen]"
     )
 
 
@@ -77,14 +77,16 @@ def cost_of_transport_report(tr) -> None:
     kt, r = energy.G1_KNEE.kt, energy.G1_KNEE.r
     tau = tr["qfrc_actuator"][skip:]            # (T, ndof)
     omega = tr["qvel"][skip:]
-    mech = tau * omega                          # mechanical power per DoF
-    ohm = energy.ohmic_power(tau, kt, r)        # Joule heating per DoF
-    e_mech = float(np.sum(mech) * dt)
-    e_ohm = float(np.sum(ohm) * dt)
-    # No regeneration: each actuator's electrical power is clamped >= 0 (a geared
-    # G1 motor does not recharge the battery during braking). This is the sole
-    # reported model — see docs/related_work.md / RESULTS.md.
-    e_elec = float(np.sum(np.maximum(mech + ohm, 0.0)) * dt)
+    # Canonical electrical decomposition over all DoFs (mean watts); recover
+    # energies by multiplying by the window duration. No regeneration: each
+    # actuator's electrical power is clamped >= 0 (a geared G1 motor does not
+    # recharge the battery during braking) — the sole reported model, see
+    # docs/related_work.md / RESULTS.md.
+    wb = metrics.power_breakdown(tau, omega, dt, kt, r)
+    dur = len(tau) * dt
+    e_mech = wb["mech_signed"] * dur            # signed mechanical work, J
+    e_ohm = wb["ohmic"] * dur                   # Joule heating, J
+    e_elec = wb["elec_noregen"] * dur
     dist = float(np.linalg.norm(tr["qpos"][-1, :2] - tr["qpos"][skip, :2]))
     mass = float(tr["total_mass"])
     denom = mass * energy.G * max(dist, 1e-9)
@@ -93,7 +95,7 @@ def cost_of_transport_report(tr) -> None:
         f"(mass {mass:.1f} kg), no regeneration:\n"
         f"  mechanical work {e_mech:7.1f} J   ohmic (Joule) {e_ohm:7.1f} J\n"
         f"  electrical {e_elec:7.1f} J  ->  CoT {e_elec / denom:.3f}\n"
-        f"  [Kt={kt}, R={r} PLACEHOLDER — absolute CoT not trustworthy; "
+        f"  [Kt={kt}, R={r} ESTIMATED — absolute CoT not trustworthy; "
         f"use spring-vs-no-spring ratios]"
     )
 
@@ -133,7 +135,7 @@ def main() -> None:
         p_cu = energy.copper_loss(tau, energy.G1_KNEE.kt, energy.G1_KNEE.r)
         neg_work = float(np.sum(np.minimum(tau * omega, 0.0)) * dt)
         print(f"{name}: RMS torque {rms_tau:.1f} N*m   "
-              f"mean copper loss {np.mean(p_cu):.1f} W (PLACEHOLDER Kt,R)   "
+              f"mean copper loss {np.mean(p_cu):.1f} W (ESTIMATED Kt,R)   "
               f"negative work {neg_work:.1f} J")
 
         axes[i, 0].plot(t, theta)

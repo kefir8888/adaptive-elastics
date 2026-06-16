@@ -17,16 +17,16 @@ import pathlib
 import numpy as np
 
 from pea import config as cfg_lib
-from pea import springs
+from pea import energy, metrics, springs
 from pea.env import joints_by_substring, make_env
 
-RUN = pathlib.Path(
-    "/Users/elijah/Library/CloudStorage/GoogleDrive-kefir8888@gmail.com/"
-    "Мой диск/pea_runs/2026-06-11_baseline_h100"
-)
+CONFIGS = pathlib.Path(__file__).resolve().parents[1] / "configs"
+RUN = cfg_lib.resolve_runs_dir() / "2026-06-11_baseline_h100"
 TRANSIENT_S = 2.0
-# R/Kt^2 [Ohm/(N*m/A)^2]: current team value, then the corrected band.
-CVALS = [0.0025, 0.01, 0.02, 0.05]
+# R/Kt^2 [Ohm/(N*m/A)^2]: current team value (derived from the source constant
+# energy.G1_KNEE, ~= 0.002457 -- NOT a separate hardcoded 0.0025), then the band.
+CURRENT_RKT2 = energy.G1_KNEE.r / energy.G1_KNEE.kt ** 2
+CVALS = [CURRENT_RKT2, 0.01, 0.02, 0.05]
 
 
 def main():
@@ -37,16 +37,15 @@ def main():
     tau = tr["qfrc_actuator"][skip:]
     dur = len(tau) * dt
 
-    cfg = cfg_lib.load_config("configs/baseline_gate.yaml")
+    cfg = cfg_lib.load_config(CONFIGS / "baseline_gate.yaml")
     model = make_env(cfg).mj_model
-    act = [int(model.jnt_dofadr[j]) for j in range(model.njnt)
-           if int(model.jnt_dofadr[j]) >= 6]
+    act = metrics.actuated_dof_adrs(model)
     hip = joints_by_substring(model, "hip_pitch")
     hip_dof = [v["dof_adr"] for v in hip.values()]
     hip_qpos = [v["qpos_adr"] for v in hip.values()]
 
     spec = springs.from_config(
-        cfg_lib.load_config("configs/spring_hip_linear.yaml").spring)
+        cfg_lib.load_config(CONFIGS / "spring_hip_linear.yaml").spring)
     th = tr["qpos"][skip:][:, hip_qpos]
     tau_hip_spring = tau[:, hip_dof] - springs.tau_spring(th, spec)
     tau_wb_spring = tau[:, act].copy()
@@ -54,14 +53,11 @@ def main():
     tau_wb_spring[:, hip_pos_in_act] = tau_hip_spring
 
     def block(t, w, c):
-        mech = t * w
-        ohm = t ** 2 * c
-        s = dt / dur
-        return dict(
-            noregen=float(np.maximum(mech + ohm, 0).sum() * s),
-            regen=float((mech + ohm).sum() * s),
-            ohm=float(ohm.sum() * s),
-        )
+        # power_breakdown's ohmic is (tau/kt)^2 * r; with kt=1, r=c this is
+        # exactly tau^2 * c, the single-ratio ohmic model this script sweeps.
+        pb = metrics.power_breakdown(t, w, dt, 1.0, c)
+        return dict(noregen=pb["elec_noregen"], regen=pb["elec_regen"],
+                    ohm=pb["ohmic"])
 
     print(f"\nbaseline {RUN.name}   window {dur:.0f} s   "
           f"(post-hoc, no-regen, fixed gait — optimistic bound)\n")
@@ -77,7 +73,7 @@ def main():
         hpM = block(tau_hip_spring, qvel[:, hip_dof], c)
         wb_saved = wbN["noregen"] - wbM["noregen"]
         hp_saved = hpN["noregen"] - hpM["noregen"]
-        tag = "  <-- current" if c == 0.0025 else (
+        tag = "  <-- current" if c == CURRENT_RKT2 else (
             "  <-- hip est" if c == 0.05 else "")
         print(f"{c:>8.4f} | {wbN['noregen']:>9.1f} {wbM['noregen']:>8.1f} "
               f"{wb_saved:>8.1f} {100*wb_saved/wbN['noregen']:>7.1f}% "

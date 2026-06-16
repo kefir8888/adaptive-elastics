@@ -1,0 +1,40 @@
+# Go1 RUNNING — Stage 5 (run + one-sided linear-stiffness knee spring). Isolates the
+# braking-energy-recovery channel a constant preload CANNOT capture: a linear spring that engages on
+# ONLY ONE side of theta_engage (stores energy as the knee bends in stance, returns it on extension)
+# and is exactly zero on the other side, so it does not fight swing-leg motion (the G1 reversal
+# failure mode). The spring is the ONLY difference from go1_run_s2.yaml — every env override, reward
+# tweak, energy weight, motor, and seed below is BYTE-IDENTICAL to S2 (parity).
+# See docs/dog_running_design.md.
+#
+# WARM-START (command-line, not a config field): launch from the S2 run with
+#   pea-train --config configs/go1_run_spring_onesided.yaml --restore <S2_run_dir>
+name: go1_run_spring_onesided
+env_name: Go1JoystickFlatTerrain
+seed: 1
+domain_randomization: true
+num_timesteps: 120000000   # ~120 M, matching S2
+env_overrides:
+  command_config.a: [3.2, 0.4, 0.6]
+  reward_config.max_foot_height: 0.15
+reward_scales:
+  feet_air_time: 0.4
+  lin_vel_z: -0.25
+  feet_height: -0.05
+  feet_clearance: -1.0
+spring:
+  kind: one_sided_linear
+  joint: calf            # Go1 knee == calf joint
+  # PLACEHOLDER: stiffness k and the engage angle/side come from the S3 work-loop analysis.
+  # TODO(S3): set k from the BRAKING LOBE of the calf torque-angle loop (target ~50-70% of the
+  # braking energy, per the design doc); set theta_engage to the stance-flexion angle where braking
+  # begins; set engage_sign to the side where the calf angle GROWS into stance flexion (so the spring
+  # stores on flexion and is silent during swing). 30.0 / 0.0 / +1 below are stand-ins ONLY.
+  k: 30.0
+  theta_engage: 0.0
+  engage_sign: 1.0
+  # Optional DR over k (OFF by default — the experiment fixes k from S3; this is just a robustness
+  # knob). To enable: k_dr: true, k_dr_min: <low>, k_dr_max: <high>.
+  k_dr: false
+energy_reward_weight: -1.0e-4
+energy_motor: go1_knee
+ppo: {}

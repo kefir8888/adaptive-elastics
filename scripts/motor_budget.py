@@ -17,13 +17,11 @@ import pathlib
 import numpy as np
 
 from pea import config as cfg_lib
-from pea import energy, springs
+from pea import energy, metrics, springs
 from pea.env import joints_by_substring, make_env
 
-RUN = pathlib.Path(
-    "/Users/elijah/Library/CloudStorage/GoogleDrive-kefir8888@gmail.com/"
-    "Мой диск/pea_runs/2026-06-11_baseline_h100"
-)
+CONFIGS = pathlib.Path(__file__).resolve().parents[1] / "configs"
+RUN = cfg_lib.resolve_runs_dir() / "2026-06-11_baseline_h100"
 TRANSIENT_S = 2.0
 KT, R = energy.G1_KNEE.kt, energy.G1_KNEE.r
 
@@ -44,20 +42,18 @@ def main():
     skip = int(TRANSIENT_S / dt)
     qvel = tr["qvel"][skip:]            # (T, 35)
     tau = tr["qfrc_actuator"][skip:]    # (T, 35)
-    T = len(tau)
-    dur = T * dt
+    dur = len(tau) * dt
 
     # Build dof_adr -> joint name map for every actuated joint (dof_adr >= 6).
     # Use a clean config (the run's own config.yaml has a stale cubic-spring
     # field); the G1 model is identical regardless of spring/energy settings.
-    cfg = cfg_lib.load_config("configs/baseline_gate.yaml")
+    cfg = cfg_lib.load_config(CONFIGS / "baseline_gate.yaml")
     model = make_env(cfg).mj_model
     import mujoco
 
     dof2name = {}
     for j in range(model.njnt):
-        name = mujoco.mj_id2name(mujoco.mjtObj.mjOBJ_JOINT, j) if False else \
-            mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_JOINT, j)
+        name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_JOINT, j)
         adr = int(model.jnt_dofadr[j])
         if adr >= 6 and name:
             dof2name[adr] = name
@@ -68,8 +64,7 @@ def main():
     act = sorted(dof2name)
     tot_elec = e_dof[act].sum()
     tot_mech_signed = mech_dof[act].sum()
-    tot_mech_pos = np.maximum(tr["qfrc_actuator"][skip:][:, act]
-                              * qvel[:, act], 0.0).sum() * dt
+    tot_mech_pos = np.maximum(tau[:, act] * qvel[:, act], 0.0).sum() * dt
     tot_ohm = ohm_dof[act].sum()
     print(f"\n=== Baseline whole-body motor budget  ({dur:.1f} s steady walk, "
           f"Kt={KT}, R={R}) ===")

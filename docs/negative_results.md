@@ -3,8 +3,10 @@
 The load-bearing output of the study so far. On a high-geared commercial humanoid
 (Unitree G1), targeted parallel elasticity for walking efficiency **does not pay**,
 and we can say precisely why. **The counterpoint:** on a *low-gear quadruped* (Go1) it
-*does* pay — a constant knee preload cuts **−17 to −20%** in-loop across 2 seeds (see the
-resolved item at the end, and `RESULTS.md`); **gear ratio is the crux.** Each entry is tagged **EXPERIMENTAL** (trained
+*does* pay — a constant knee preload cuts cost of transport **−14 to −27% in 3 of 4
+conditions, growing with load** (3 seeds; seed 2 a weak −3 to −8% outlier), with **no
+stability cost at low-to-mid load but survival degrading above ~7.5 kg** (see the resolved
+item at the end, and `RESULTS.md`); **gear ratio is the crux.** Each entry is tagged **EXPERIMENTAL** (trained
 policies + measured energy) or **REASONED** (from real specs / actuator physics /
 literature).
 
@@ -115,16 +117,24 @@ contribution is integration (parallel + in-loop RL co-adaptation + commercial hu
 ## Caveat that makes the picture worse, not better
 The energy model **omits iron (core) loss** (hysteresis + eddy, ∝ motor *speed*). A
 parallel spring offloads *torque, not speed*, so it cannot cut iron loss; including it
-would enlarge the denominator and **dilute** the (already negative) result. On the
-high-geared G1 the motor spins ~22.5× joint speed, so iron loss is not negligible. The
-G1 numbers above are therefore, if anything, optimistic. (See `energy.py` scope note.)
+would enlarge the denominator and **dilute** the (already negative) result. **Quantified
+upper bound:** G1 whole-body iron loss likely **~25–35 W (14–20% of the ~178 W budget)**,
+worst case ~58–65 W (33–37%); Go1 negligible (~3–5 W, <5%), because the G1's high gear
+spins its rotor ~10× faster than the Go1's and eddy loss grows with frequency squared.
+Effect on the headlines: G1 walking offline −2.9% → ~−2.1 to −2.4%; Go1 −14 to −27% →
+~−13.3 to −26.8% (essentially unchanged). It is an estimate (a no-load spin-down test would
+pin it), and **all conclusions survive it**. The G1 numbers above are therefore, if anything,
+slightly optimistic. (See `RESULTS.md` and the `energy.py` scope note.)
 
 ## What is NOT yet a negative result (open / under test)
 - **Go1 quadruped (low gear 6.33:1): RESOLVED — POSITIVE.** Ohmic is **54%** of the budget;
   the calf is also offset-dominated (NR-1), so a **constant knee preload** is the buildable
-  optimum, and in-loop it cuts whole-body electrical by **−16.7% / −19.7%** across 2 seeds with
-  **no stability cost** (post-hoc −14.9%; in-loop HELD/IMPROVED it). **NR-4/5/6 are G1-specific
-  and do NOT transfer to low gear.** This is the payoff that gives the negatives their meaning.
+  optimum, and in-loop it HELD/IMPROVED the offline estimate instead of reversing (post-hoc
+  −14.9%). The validated load-carrying WALKING program cuts **cost of transport −14 to −27%
+  in 3 of 4 conditions, growing with load** (3 seeds; seed 2 a weak −3 to −8% outlier), with
+  **no stability cost at low-to-mid load but survival degrading above ~7.5 kg** (per-seed table
+  in `RESULTS.md`). **NR-4/5/6 are G1-specific and do NOT transfer to low gear.** This is the
+  payoff that gives the negatives their meaning.
 - **A per-stride stance/swing clutch on WALKING** (feasible, ~1 Hz, Collins-2015 style):
   could rescue the hip spring (NR-2) by freeing it in swing; untested.
 - **A constant-torque element at the G1 knee** (NR-1): post-hoc only, never in-loop.

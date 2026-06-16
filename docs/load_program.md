@@ -1,9 +1,12 @@
 # Quadruped load-carrying program — adaptive parallel knee preload
 
 The quadruped extension of the study, after the Go1 walking result (a constant parallel
-knee preload cuts **−17 to −20 %** in-loop on the low-gear Go1; see `RESULTS.md` /
-`negative_results.md`). Direction: a Go1 (later other low-gear dogs) carrying **variable
-payloads**, with a **self-tuning constant knee preload** that adapts to the measured load.
+knee preload cuts cost of transport **−14 to −27 % in 3 of 4 conditions, growing with load**,
+3 seeds — seed 2 a weak −3 to −8 % outlier; see `RESULTS.md`). Direction: a Go1 (later other
+low-gear dogs) carrying **variable payloads**, with a **self-tuning constant knee preload**
+that adapts to the measured load. **This program is DONE and positive** (numbers in `Status`
+below); the project's now-active direction is the Go1 *dog-running* extension
+(`docs/NEXT_SESSION.md`).
 
 ## Why this is more than the "trivial" result
 The bare mechanism — offload the most-loaded leg joint, the motor works less — is simple
@@ -128,13 +131,21 @@ heavy-load story; needs env wrap), ANYmal (SEA / already series — defer). Est.
 + 0.5–2 hr setup per robot**; absolute energy needs per-robot Kt/R (only Go1 has a datasheet
 Kt) so lead with the **relative %** and Bjelonic's gear-invariant ∫τ²dt.
 
-## Status
-- **Payload baseline** (flat, payload 0–25 kg, blind controller, 300 M) — training now (~20 min).
-- **Next:** build the **adaptive-preload spring run** (the mechanism above) → compare to the
-  baseline as **payload-capacity + energy-vs-load curves**. The headline is the capacity
-  curve: where the baseline tops out vs how far the adaptive preload extends it.
+## Status — DONE and POSITIVE (2026-06-16)
+The **0–6 kg load-carrying program is complete and positive.** The initial **0–25 kg** range
+collapsed the blind policy to standing (the unwalkable >12 kg tail dominated); the **fix —
+narrowing the payload range to a walkable band — RAN and worked.** Results (adaptive per-leg
+preload vs matched no-spring, headline = cost of transport, 3 seeds + a curriculum run):
+- **CoT −14 to −27 % in 3 of 4 conditions, growing with payload** (@0 / 2.5 / 5 kg); seed 2 is
+  a weak −3 to −8 % outlier. Whole-body electrical at no load: −9.5 % (s1), +0.8 % (s2),
+  −5.6 % (s3). Per-seed/per-load table in `RESULTS.md`; figure `outputs/figures/cot_vs_load.png`.
+- **Stability cost (honest):** **no stability cost at low-to-mid load**, but the adaptive
+  policy's **survival degrades above ~7.5 kg** (down to ~870–1260 of 1500 steps) while the
+  matched no-spring baseline holds 1500/1500.
+- **Next direction:** the Go1 *dog-running* knee-spring experiment (`docs/NEXT_SESSION.md`,
+  `docs/dog_running_design.md`).
 
-## Capacity realism + planned beyond-30 kg experiments (NOT YET RUN — 2026-06-16)
+## Capacity realism + the capacity-to-failure ladder (2026-06-16)
 **Real payload capacity (grounding):**
 - **Unitree Go1** (12 kg robot, our "dog"): ~3–5 kg recommended continuous, **~10 kg max rated**.
 - **Unitree B2** (60 kg industrial quadruped): **40 kg walking**, 120 kg standing, 6 m/s run.
@@ -144,9 +155,21 @@ Kt) so lead with the **relative %** and Bjelonic's gear-invariant ∫τ²dt.
 - **15–40 kg is realistic only for a B2-class robot**, NOT a Go1.
 - The "capacity-to-failure" ladder is therefore **not meaningful in plain sim** (it doesn't fail until unphysical loads); the spring/baseline 20–30 kg energy numbers are sim-only and must be labeled as such.
 
-**Planned beyond-30 kg / high-load experiments (do NOT run yet):**
-1. **Thermal/continuous-torque-limited capacity (the strong, physical one).** Impose the real *continuous* (thermal) joint-torque limit — far below peak — as a cap (or via an `I²R`/thermal budget). The Go1 then fails at a realistic ~5–10 kg, and the constant knee preload, which offloads exactly the *mean* (continuous, thermal-limiting) torque, should **extend the thermal-limited carry capacity** — tying the capacity claim directly to the ohmic/thermal mechanism that is the whole study. Highest value: makes "capacity" physical AND mechanistic.
-2. **Sim failure ceiling (characterization only).** Push 35/40/50 kg until the plain-sim Go1 actually fails (peak torque or balance), explicitly labeled *sim-only*, to bound the model + the spring's sim-extension. Cheap (warm-start ladder), low scientific weight.
-3. **B2-class reframe.** Run the 15–40 kg study on a **big-quadruped** model where those loads are real. Playground has Spot (~14 kg payload) but no B2; would need a B2 MJX model. This is where 30 kg actually belongs.
+**Capacity-to-failure ladder — what ran, what is outstanding:**
+- **Plain-simulation ladder to 30 kg — RAN** (warm-started baseline + adaptive runs at
+  0–30 kg, see `docs/checkpoints.md`). It must be labelled **sim-only / unphysical for a ~12 kg
+  robot**: the plain MJX model enforces *peak* torque but not *continuous* (thermal) torque,
+  structure, or balance, so the sim Go1 "walks" at loads (15–30 kg) that are 3–6× the real
+  Go1's rated max. These high-load energy numbers are sim-only and are reported as such.
+- **Thermal-limited capacity ladder — NOT YET RUN (the outstanding, physically meaningful
+  version).** Impose the real *continuous* (thermal) joint-torque limit — far below peak — as a
+  cap (or via an `I²R`/thermal budget). The Go1 then fails at a realistic ~5–10 kg, and the
+  constant knee preload, which offloads exactly the *mean* (continuous, thermal-limiting)
+  torque, should **extend the thermal-limited carry capacity** — tying the capacity claim
+  directly to the ohmic/thermal mechanism that is the whole study. Highest value: makes
+  "capacity" physical AND mechanistic. **This is the version still to run.**
+- **B2-class reframe (optional).** Run the 15–40 kg study on a **big-quadruped** model where
+  those loads are real. Playground has Spot (~14 kg payload) but no B2; would need a B2 MJX
+  model. This is where 30 kg actually belongs.
 
 **Eval fix needed first:** `go1_capacity.py` caps its sweep at 15 kg — extend it to evaluate AT the trained payload (20/25/30+) with per-payload survival + forward speed, to confirm genuine walking (not a high-tracking stand) before trusting any high-load number.

@@ -1,0 +1,32 @@
+# Go1 RUNNING — Stage 4 (run + constant per-leg knee preload). The defensible arm: S2 + per-leg
+# knee-preload domain randomization (preload_dr) so a blind policy learns robust-to-any-preload; the
+# adaptive clipped-proportional controller (src/pea/control.py) sets the per-leg tau0 at EVAL. The
+# spring is the ONLY difference from go1_run_s2.yaml — every env override, reward tweak, energy
+# weight, motor, and seed below is BYTE-IDENTICAL to S2 (parity). See docs/dog_running_design.md.
+#
+# WARM-START (command-line, not a config field): launch from the S2 run with
+#   pea-train --config configs/go1_run_spring_preload.yaml --restore <S2_run_dir>
+name: go1_run_spring_preload
+env_name: Go1JoystickFlatTerrain
+seed: 1
+domain_randomization: true
+num_timesteps: 120000000   # ~120 M, matching S2
+env_overrides:
+  command_config.a: [3.2, 0.4, 0.6]
+  reward_config.max_foot_height: 0.15
+reward_scales:
+  feet_air_time: 0.4
+  lin_vel_z: -0.25
+  feet_height: -0.05
+  feet_clearance: -1.0
+spring:
+  kind: preload_dr
+  joint: calf            # Go1 knee == calf joint
+  # PLACEHOLDER: max per-leg preload for the U(0, tau0) per-episode draw. The real value comes from
+  # the S3 work-loop analysis (the OFFSET of the calf torque-angle loop sets the constant preload).
+  # TODO(S3): replace 8.0 with the offset-derived cap. 8.0 is a stand-in (the walking study used 12
+  # for a 0-10 kg payload; the no-load runner needs less support torque, so a smaller cap is a guess).
+  tau0: 8.0
+energy_reward_weight: -1.0e-4
+energy_motor: go1_knee
+ppo: {}

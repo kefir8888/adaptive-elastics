@@ -225,35 +225,52 @@ within a stride the element is passive.
 | | HECTOR | 9.1:1 | QDD planetary |
 | | NING humanoid | 10:1 | planetary |
 | | 1X Neo / Eve | ~direct-drive (tendon) | near-gearless |
-| MID | **Unitree G1 (knee, hip-pitch)** | **22.5:1** (hip-yaw 14.3, ankle 5020) | QDD |
+| MID | **Unitree G1 (knee)** | **22.5:1** (**hip-pitch 14.3:1**, ankle 5020) | QDD |
 | | Cassie / Digit | ~10:1 cycloidal | SEA, backdrivable |
 | HIGH (ohmic negligible) | Figure 01/02/03 | 50–160:1 | harmonic/strain-wave |
 | | Apptronik Apollo | 100–160:1 | harmonic + SEA |
 | | Tesla Optimus (rotary) | 50–160:1 (partial) | harmonic |
 | | ANYmal (quadruped) | 100:1 | harmonic + SEA |
+| | Boston Dynamics Spot (quadruped) | **hip ~51:1** (NOT ~80–160:1) | harmonic + ball-screw knee |
 | | HRP-2/4, TALOS, Valkyrie, WALK-MAN | 100–160:1 | harmonic |
 
-**Two corrections to earlier notes:** (a) ANYmal is **100:1** (higher-geared than
+**Corrections to earlier notes:** (a) ANYmal is **100:1** (higher-geared than
 the G1), so Bjelonic's win there came via the torque-square + peak-torque +
 runtime channel, not a low-gear copper bonanza; the low-gear quadrupeds are the
 MIT-Cheetah / Unitree-Go lineage (~6:1). (b) The "−31 % joint electrical" figure
 is **STEPPR's hip** (biped, clutched), not Bjelonic — Bjelonic 2023 = +33 %
-torque-square, −30 % peak torque, +11 % runtime.
+torque-square, −30 % peak torque, +11 % runtime. (c) The G1 **hip-pitch is 14.3:1**,
+not 22.5:1 (22.5:1 is the knee); the older "22.5:1 everywhere" is wrong for hip-pitch
+(per `docs/robot_inventory.md`). The dispute over the exact hip-pitch ratio is
+**unresolved** and swings that joint's ohmic coefficient ~2.5×, but ohmic stays ~4 %
+of the budget either way. (d) **Spot's hip is ~51:1**, the value in
+`docs/robot_inventory.md`, **not the "~80–160:1"** quoted in some earlier notes.
 
 ## Go-forward plan (ordered)
 
-1. **Direction 1** — run the G1 in-loop gate now (Milestone 4). Settles the headline
-   and the post-hoc-vs-in-loop delta.
-2. **Direction 2** — train a G1/H1 running (or bounding) policy, then add the
-   tunable spring; appeal is the larger braking energy + bouncing gaits, NOT the
-   clutch (our passive dead zone can't gate the within-stride swing-fight).
-3. **Direction 5** — Go2 with a single zero-shot spring-/terrain-conditioned
-   policy across slopes and loads (no per-condition retrain).
-4. **Direction 6** — DecART-style MJX leg with a leg-length spring (experimental;
-   confirm gear ratio first).
-5. **Direction 3** — low-gear research-platform comparison (Berkeley Humanoid),
-   lower priority, sim-only.
-6. **Direction 4** — dropped.
+> **Status update (2026-06-16).** Direction 1 is **DONE — negative**: the G1 in-loop gate
+> (Milestone 4) ran and the spring made walking **+7.4 % worse** (`RESULTS.md`). The project
+> then pivoted to the **Go1 quadruped** (the low-gear platform where springs pay): the
+> load-carrying WALKING program is **done and positive** (CoT −14 to −27 % in 3 of 4
+> conditions), and the **ACTIVE direction is the Go1 "dog-running" knee-spring experiment**
+> (`docs/NEXT_SESSION.md`, `docs/dog_running_design.md`) — a running quadruped adds a
+> braking-energy-recovery channel walking lacks. This roughly maps onto Directions 2 (running)
+> and 5 (quadruped) below, but on the **dog**, not the G1.
+
+1. **Direction 1** — ✅ DONE (negative): the G1 in-loop gate (Milestone 4) settled the headline
+   and the offline-vs-in-loop delta; the spring is negative on the high-geared G1.
+2. **ACTIVE — Go1 dog-running knee spring** (the running half of Directions 2 + 5, on the dog).
+   Appeal: the larger braking energy + a real flight phase, NOT the clutch (our passive dead
+   zone can't gate the within-stride swing-fight). Plan: `docs/NEXT_SESSION.md`.
+3. **Direction 5** — Go2 with a single zero-shot spring-/terrain-conditioned policy across
+   slopes and loads (no per-condition retrain) — a follow-on to the dog-running work.
+4. **Direction 6** — DecART-style MJX leg with a leg-length spring (experimental; confirm gear
+   ratio first).
+5. **Direction 2 on a humanoid** — a G1/H1 running policy is **parked** (long-shot; the
+   Playground G1 env structurally resists a flight phase — see `docs/g1_running_design.md`).
+6. **Direction 3** — low-gear research-platform comparison (Berkeley Humanoid), lower priority,
+   sim-only.
+7. **Direction 4** — dropped.
 
 ## Provenance
 

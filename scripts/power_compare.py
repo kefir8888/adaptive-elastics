@@ -14,13 +14,11 @@ import pathlib
 import numpy as np
 
 from pea import config as cfg_lib
-from pea import energy, springs
+from pea import energy, metrics, springs
 from pea.env import joints_by_substring, make_env
 
-RUN = pathlib.Path(
-    "/Users/elijah/Library/CloudStorage/GoogleDrive-kefir8888@gmail.com/"
-    "Мой диск/pea_runs/2026-06-11_baseline_h100"
-)
+CONFIGS = pathlib.Path(__file__).resolve().parents[1] / "configs"
+RUN = cfg_lib.resolve_runs_dir() / "2026-06-11_baseline_h100"
 TRANSIENT_S = 2.0
 KT, R = energy.G1_KNEE.kt, energy.G1_KNEE.r
 
@@ -31,39 +29,26 @@ def main():
     skip = int(TRANSIENT_S / dt)
     qvel = tr["qvel"][skip:]
     tau = tr["qfrc_actuator"][skip:]
-    T = len(tau)
-    dur = T * dt
+    dur = len(tau) * dt
 
-    cfg = cfg_lib.load_config("configs/baseline_gate.yaml")
+    cfg = cfg_lib.load_config(CONFIGS / "baseline_gate.yaml")
     model = make_env(cfg).mj_model
-    import mujoco
 
-    act = [int(model.jnt_dofadr[j]) for j in range(model.njnt)
-           if int(model.jnt_dofadr[j]) >= 6]
+    act = metrics.actuated_dof_adrs(model)
     hip = joints_by_substring(model, "hip_pitch")
     hip_dof = [v["dof_adr"] for v in hip.values()]
     hip_qpos = [v["qpos_adr"] for v in hip.values()]
 
     spec = springs.from_config(
-        cfg_lib.load_config("configs/spring_hip_linear.yaml").spring)
+        cfg_lib.load_config(CONFIGS / "spring_hip_linear.yaml").spring)
 
     def block(dofs, tau_mod=None):
         """Mean watts for a set of DoFs. tau_mod optionally replaces torque."""
-        t = tau[:, dofs].copy()
-        w = qvel[:, dofs]
-        if tau_mod is not None:
-            t = tau_mod
-        mech = t * w                       # (T, k) instantaneous W
-        ohm = (t / KT) ** 2 * R
-        s = dt / dur                       # sum(power)*dt/dur = mean W over window
-        mech_W = mech.sum() * s            # signed mechanical, mean W
-        pos_W = np.maximum(mech, 0).sum() * s
-        neg_W = np.minimum(mech, 0).sum() * s
-        ohm_W = ohm.sum() * s
-        elec_regen = (mech + ohm).sum() * s               # allow recharge
-        elec_noregen = np.maximum(mech + ohm, 0).sum() * s  # per-DoF clamp >=0
-        return dict(mech=mech_W, pos=pos_W, neg=neg_W, ohm=ohm_W,
-                    regen=elec_regen, noregen=elec_noregen)
+        t = tau[:, dofs] if tau_mod is None else tau_mod
+        pb = metrics.power_breakdown(t, qvel[:, dofs], dt, KT, R)
+        return dict(mech=pb["mech_signed"], pos=pb["mech_pos"],
+                    neg=-pb["braking"], ohm=pb["ohmic"],
+                    regen=pb["elec_regen"], noregen=pb["elec_noregen"])
 
     # hip torque with spring subtracted
     th = tr["qpos"][skip:][:, hip_qpos]

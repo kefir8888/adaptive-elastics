@@ -118,6 +118,65 @@ def performance(traj, act, kt, r) -> dict:
     )
 
 
+def go1_foot_contact_sensor_adrs(mj_model) -> list[int]:
+    """sensordata addresses of the Go1's 4 foot-floor-contact sensors.
+
+    The Go1 Playground env reads foot contact from sensors named
+    '{geom}_floor_found' for geom in (FR, FL, RR, RL); a value > 0 means that
+    foot touches the floor (see go1/base.py _feet_floor_found_sensor and
+    joystick.py step()). Returns the four sensordata indices in that foot order.
+    """
+    import mujoco
+
+    adrs = []
+    for geom in ("FR", "FL", "RR", "RL"):
+        sid = mujoco.mj_name2id(mj_model, mujoco.mjtObj.mjOBJ_SENSOR, f"{geom}_floor_found")
+        if sid < 0:
+            raise ValueError(f"no contact sensor {geom}_floor_found in model")
+        adrs.append(int(mj_model.sensor_adr[sid]))
+    return adrs
+
+
+def flight_fraction(contact, min_grounded_run: int = 1) -> dict:
+    """Aerial-phase metrics from per-timestep foot-contact signals.
+
+    contact: (T, n_feet) array of 0/1 (or bool) foot-floor contacts. A genuine
+    RUN has all-feet-off windows; a fast TROT keeps at least one foot down at
+    all times, so its all-feet-off fraction stays ~0. We report both the raw
+    fraction and a stride-level check so a single noisy aerial frame is not
+    mistaken for true flight.
+
+    Returns:
+      flight_fraction      -- fraction of timesteps with ALL feet off the ground.
+      n_feet_down_min      -- the per-stride MINIMUM number of feet on the ground
+                              over the rollout: 0 means a real all-feet-off window
+                              opened at least once; >=1 means it never did (a
+                              grounded trot). This is the gate the design asks for
+                              (min-over-gait of the all-feet-off indicator).
+      max_flight_run       -- longest run of consecutive all-feet-off timesteps
+                              (a real flight phase lasts several steps, not one).
+      true_flight          -- True iff a flight run of at least `min_grounded_run`
+                              consecutive timesteps occurred (filters single-frame
+                              contact dropouts). Use as the S2 GO/NO-GO gate.
+    """
+    c = np.asarray(contact) > 0          # (T, n_feet) bool
+    n_down = c.sum(axis=1)               # feet on the ground per timestep
+    all_off = (n_down == 0)
+    frac = float(all_off.mean())
+    n_feet_down_min = int(n_down.min()) if len(n_down) else 0
+    # longest consecutive all-feet-off run
+    max_run = run = 0
+    for off in all_off:
+        run = run + 1 if off else 0
+        max_run = max(max_run, run)
+    return dict(
+        flight_fraction=frac,
+        n_feet_down_min=n_feet_down_min,
+        max_flight_run=int(max_run),
+        true_flight=bool(max_run >= max(min_grounded_run, 1)),
+    )
+
+
 def _vel_limit_for(name: str, vel_limits: dict, default: float) -> float:
     """Look up a joint's max angular velocity by substring match on its name."""
     for key, v in vel_limits.items():
@@ -176,11 +235,14 @@ def evaluate(traj, mj_model, act, kt, r, spec=None, joint_substr: str | None = N
     """
     qpos, qvel, dt = traj["qpos"], traj["qvel"], float(traj["dt"])
     tau_full = traj["qfrc"]
-    tq = td = []
+    # Resolve the target joint's qpos/dof addresses ONCE, used both to subtract the
+    # post-hoc spring and to report that joint's energy share below.
+    tq, td = [], []
+    if joint_substr is not None:
+        _, tq, td = joint_addrs(mj_model, joint_substr)
     if spec is not None:
         if joint_substr is None:
             raise ValueError("joint_substr required when a spring spec is given")
-        _, tq, td = joint_addrs(mj_model, joint_substr)
         tau_full = subtract_spring(tau_full, qpos, spec, tq, td)
     traj_eff = {**traj, "qfrc": tau_full}
 
@@ -191,8 +253,7 @@ def evaluate(traj, mj_model, act, kt, r, spec=None, joint_substr: str | None = N
     # joint_braking is the negative (braking) work this joint dissipates under
     # no-regen — the energy a spring can intercept, i.e. the gate metric.
     if joint_substr is not None:
-        _, tq2, td2 = joint_addrs(mj_model, joint_substr)
-        jt = power_breakdown(tau_full[:, td2], qvel[:, td2], dt, kt, r)
+        jt = power_breakdown(tau_full[:, td], qvel[:, td], dt, kt, r)
         joint_elec = jt["elec_noregen"]
         joint_share = joint_elec / max(wb["elec_noregen"], 1e-9)
         joint_braking = jt["braking"]

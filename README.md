@@ -13,21 +13,26 @@ cost of transport, not mechanical work. Full design in `CLAUDE.md`.
 
 | Platform | Gear ratio | Ohmic share of budget | Parallel-spring verdict |
 |--|--|--|--|
-| Unitree **G1** humanoid | 22.5:1 (high) | ~4 % | **Negative** — in-loop hip spring **+7 % worse** for walking (9 catalogued negatives) |
-| Unitree **Go1** quadruped | 6.33:1 (low) | ~54 % | **Positive** — constant knee (calf) preload cuts CoT **−17 to −27 %** (3 seeds) |
+| Unitree **G1** humanoid | knee 22.5:1, hip-pitch 14.3:1 (high) | ~4 % | **Negative** — in-loop hip spring **+7.4 % worse** for walking (9 catalogued negatives) |
+| Unitree **Go1** quadruped | 6.33:1 (low) | ~54 % | **Positive** — constant knee (calf) preload cuts CoT **−14 to −27 %** (3 of 4 conditions, 3 seeds) |
 
 On the low-gear Go1, ohmic loss dominates, so offloading the knee's support torque pays. On the high-gear G1
 ohmic is negligible and the always-on spring just fights the gait. **The gear ratio decides the sign.**
 
 ## Current state (2026-06-16)
 
-**Done + validated — Go1 quadruped (the positive track):**
-- **Constant parallel knee preload cuts cost of transport −17 to −27 %** on flat ground, **3 seeds**
-  (seeds 1 & 3 strong, seed 2 weaker at low load). The element must be a CONSTANT preload, not a linear
-  spring — the knee work-loop is offset-dominated, so a linear fit degenerates to k ≈ 0.
+**Done + validated — Go1 quadruped load-carrying WALKING program (the positive track):**
+- **Constant parallel knee preload cuts cost of transport −14 to −27 %** on flat ground in **3 of 4
+  conditions**, the benefit **growing with payload**, across **3 training seeds** (seed 2 is a weak
+  −3 to −8 % outlier). CoT = electrical watts divided by walking speed; per-seed/per-load numbers in
+  `docs/RESULTS.md`. The element must be a CONSTANT preload (a near-constant offload torque), not a
+  linear spring — the knee work-loop is offset-dominated, so a linear fit degenerates to k ≈ 0.
+- **Stability cost (reported honestly):** **no stability cost at low-to-mid load**, but the adaptive
+  policy's **survival degrades above ~7.5 kg payload** (down to ~870–1260 of 1500 steps), where the
+  matched no-spring baseline still holds 1500/1500. The energy win is a low-to-mid-load result.
 - **Adaptive per-leg self-tuning preload** — a slow clipped-proportional loop ramps each leg's preload to
   offload its own measured knee torque, with **no load sensor and no payload observation**. Validated; extends
-  the win to **load-carrying (0–6 kg payloads)**, where the CoT benefit **grows with load**.
+  the win to **load-carrying (0–6 kg payloads)**.
 - **Walking videos** rendered (flat + rough, no-load + 5 kg) in `outputs/videos/`.
 
 **Caveats / negative / inconclusive:**
@@ -47,7 +52,12 @@ flight-permissive than the G1 (no gait clock, soft termination), and a quadruped
 so the calf can recover braking energy at impact — likely favouring a one-sided *stiffness* spring over the
 walking constant-preload. Designed; gated on whether a true all-feet-off phase actually emerges.
 
-**Infrastructure:** GPU box is **off** (all results synced locally); no new training until a box is provisioned.
+**Infrastructure:** GPU training runs on **immers.cloud, paid in rubles** (decided 2026-06-16). Crypto-funded
+Western providers (Vast / RunPod / Spheron) are **dropped** — they are KYC/sanctions-blocked from Russia and not
+worth the hassle for a ~$18–20 experiment (revisit crypto only if a large final batch of confirmation seeds is
+needed). The user provisions the box and pastes the SSH; the agent drives it and **destroys it when done**; sync
+after every run. The box is currently **off** (all results synced locally and backed up to the Drive `pea_runs`
+folder — see `docs/checkpoints.md`); no new training until a box is provisioned.
 
 ## Methodology & process discipline
 Hard-won rules from the project's *own* failures (full analysis in `docs/research_patterns.md`). Follow them;
@@ -70,9 +80,15 @@ most wasted time and every retracted claim traces to breaking one of these.
    spring makes the policy walk faster, so watts confound speed; CoT is the only fair metric. Report the band
    across seeds and the survival/stability cost, not a single optimistic number.
 7. **One active direction at a time.** Six parallel directions diluted focus; commit (currently: the running dog).
+8. **Write plainly: define every term on first use, no unexplained jargon** — in docs, code comments, and the
+   manuscript. A reader should never have to already know the project to follow a sentence. Plain-language
+   definitions of the recurring terms live in **`docs/glossary.md`**.
 
 ## Docs map
 - `CLAUDE.md` — full experiment design + project rules (**start here for design**).
+- `docs/glossary.md` — plain-language definitions of every recurring term (**start here if a word is unclear**).
+- `docs/NEXT_SESSION.md` — the actionable handoff plan for the next campaign (the dog-running experiment).
+- `docs/checkpoints.md` — inventory of every training run + its Drive backup location.
 - `docs/JOURNAL.md` — dated session history (**start here for "what happened"**).
 - `docs/RESULTS.md`, `docs/negative_results.md` — results + the catalogued negatives (a headline output).
 - `docs/load_program.md` — load-carrying adaptive-preload program + the capacity-realism analysis.
@@ -90,9 +106,13 @@ energy, policy, config, payload, train, metrics), `scripts/` (train/eval/render/
 per arm), `docs/`, `outputs/` (gitignored — one folder per run).
 
 ### Run training on a GPU box
+The next campaign is the **dog-running knee-spring experiment** — follow the staged plan in
+`docs/NEXT_SESSION.md` (it lists the configs and gates in order). Everything is on `main`. The
+bootstrap and a generic train/eval invocation:
 ```sh
 curl -fsSL https://raw.githubusercontent.com/kefir8888/adaptive-elastics/main/scripts/gpu_box_setup.sh | bash
-cd ~/adaptive-elastics && git checkout experiments-2026-06-14
+cd ~/adaptive-elastics   # already on main
+# Stage 0 of the dog-running plan, for example — see docs/NEXT_SESSION.md for the full sequence:
 uv run pea-train --config configs/<arm>.yaml --output_dir ~/runs --suffix <tag>
 # then eval: uv run python scripts/go1_capacity.py <run_dir> 1500
 ```

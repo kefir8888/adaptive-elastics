@@ -7,13 +7,13 @@ Usage: render_walk.py <run_dir> <payload_kg> <n_clips> <steps_per_clip> <out.mp4
 import sys
 import pathlib
 import numpy as np
-import jax
 import jax.numpy as jnp
 import mujoco
 
-from pea import config as cfg_lib, energy, metrics, policy as policy_lib
+from pea import config as cfg_lib, energy, experiment, metrics, policy as policy_lib
 from pea.control import AdaptivePreloadController
-from pea.env import make_env
+from pea.env import make_env, scale_hfield
+from pea.payload import TORSO_BODY_ID
 
 run = pathlib.Path(sys.argv[1])
 PAY = float(sys.argv[2])
@@ -23,23 +23,23 @@ OUT = sys.argv[5]
 
 cfg = cfg_lib.load_config(run / "config.yaml")
 env = make_env(cfg)
-go1 = env
-while hasattr(go1, "_env"):
-    go1 = go1._env
-base = float(go1._mjx_model.body_mass[1])
-go1._mjx_model = go1._mjx_model.replace(body_mass=go1._mjx_model.body_mass.at[1].set(base + PAY))
+go1 = getattr(env, "base_env", env)         # innermost Go1 env (holds _mjx_model)
+base = float(go1._mjx_model.body_mass[TORSO_BODY_ID])
+go1._mjx_model = go1._mjx_model.replace(body_mass=go1._mjx_model.body_mass.at[TORSO_BODY_ID].set(base + PAY))
 mj = env.mj_model
 if cfg.terrain_height_scale != 1.0 and mj.nhfield > 0:
-    mj.hfield_size[:, 2] *= cfg.terrain_height_scale  # match render terrain to scaled dynamics
-_, _, da = metrics.joint_addrs(mj, "calf")
-da = np.array(da)
+    scale_hfield(mj.hfield_size, cfg.terrain_height_scale)  # match render terrain to scaled dynamics
 dt = float(env.dt)
-cmd = jnp.array([1.0, 0.0, 0.0], dtype=jnp.float32)
 pol = policy_lib.load_policy(env, cfg, run / "policy_params", deterministic=True)
 ADAPT = cfg.spring.kind == "preload_dr"
 TMAX = float(cfg.spring.tau0) if ADAPT else 0.0
-nleg = len(da)
-jr, js, jp = jax.jit(env.reset), jax.jit(env.step), jax.jit(pol)
+# The adaptive controller needs the spring joint's DoF addresses (the per-leg motor
+# torque it averages). Use the configured spring joint, not a hardcoded "calf", and
+# only look it up when adaptation is actually on.
+if ADAPT:
+    _, _, da = metrics.joint_addrs(mj, cfg.spring.joint)
+    da = np.array(da)
+    nleg = len(da)
 
 H, W = 480, 640
 renderer = mujoco.Renderer(mj, H, W)
@@ -52,18 +52,13 @@ frames = []
 print(f"# {run.name}  payload {PAY}kg  adaptive={ADAPT}", flush=True)
 
 for vid in range(N):
-    rng = jax.random.PRNGKey(vid)
-    st = jr(rng)
     ctrl = AdaptivePreloadController(nleg, dt, TMAX) if ADAPT else None
-    nf = 0
-    for i in range(STEPS):
-        if ADAPT:
-            st.info["preload_tau0"] = jnp.asarray(ctrl.tau0)
-        if "command" in st.info:
-            st.info["command"] = cmd
-        rng, ar = jax.random.split(rng)
-        a, _ = jp(st.obs, ar)
-        st = js(st, a)
+    # pre_step ramps the preload before each step; callback (after each step, in
+    # lockstep with the recorded trajectory) updates the controller and renders
+    # the frame for that step.
+    pre_step = (lambda i, st: st.info.__setitem__("preload_tau0", jnp.asarray(ctrl.tau0))) if ADAPT else None
+
+    def _render(i, st):
         if ADAPT:
             ctrl.update(np.asarray(st.data.qfrc_actuator)[da])
         mjd.qpos[:] = np.asarray(st.data.qpos)
@@ -72,11 +67,11 @@ for vid in range(N):
         cam.lookat[:] = mjd.qpos[:3]
         renderer.update_scene(mjd, camera=cam)
         frames.append(renderer.render().copy())
-        nf += 1
-        if bool(st.done):
-            break
+
+    traj = experiment.rollout(env, pol, (1.0, 0.0, 0.0), STEPS, seed=vid,
+                              pre_step=pre_step, callback=_render, record_terminal=True)
     frames.extend([black] * 8)  # short separator between clips
-    print(f"  clip {vid+1}/{N}: {nf} frames", flush=True)
+    print(f"  clip {vid+1}/{N}: {traj['n']} frames", flush=True)
 
 import subprocess
 fps = int(round(1 / dt))

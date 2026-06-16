@@ -12,21 +12,19 @@ Usage: go1_capacity.py <run_dir> [steps]
 import sys
 import pathlib
 import numpy as np
-import jax
 import jax.numpy as jnp
 
-from pea import config as cfg_lib, energy, metrics, policy as policy_lib
+from pea import config as cfg_lib, energy, experiment, metrics, policy as policy_lib
 from pea.control import AdaptivePreloadController
 from pea.env import make_env
+from pea.payload import TORSO_BODY_ID
 
 run = pathlib.Path(sys.argv[1])
 STEPS = int(sys.argv[2]) if len(sys.argv) > 2 else 1500
 cfg = cfg_lib.load_config(run / "config.yaml")
 env = make_env(cfg)
-go1 = env                                   # resolve the base Go1 env (holds _mjx_model)
-while hasattr(go1, "_env"):
-    go1 = go1._env
-base = float(go1._mjx_model.body_mass[1])
+go1 = getattr(env, "base_env", env)         # innermost Go1 env (holds _mjx_model)
+base = float(go1._mjx_model.body_mass[TORSO_BODY_ID])
 mj = env.mj_model
 act = metrics.actuated_dof_adrs(mj)
 names, qa, da = metrics.joint_addrs(mj, "calf")
@@ -34,7 +32,6 @@ da = np.array(da)
 mc = energy.motor_constants(cfg.energy_motor)
 kt, r = mc.kt, mc.r
 dt = float(env.dt)
-cmd = jnp.array([1.0, 0.0, 0.0], dtype=jnp.float32)
 pol = policy_lib.load_policy(env, cfg, run / "policy_params", deterministic=True)
 ADAPT = (cfg.spring.kind == "preload_dr")
 TMAX = float(cfg.spring.tau0) if ADAPT else 0.0
@@ -44,37 +41,24 @@ print(f"# base trunk {base:.2f} kg; mode={'ADAPTIVE preload' if ADAPT else 'base
 
 def at_payload(P):
     go1._mjx_model = go1._mjx_model.replace(
-        body_mass=go1._mjx_model.body_mass.at[1].set(base + P))
-    jr, js, jp = jax.jit(env.reset), jax.jit(env.step), jax.jit(pol)
-    rng = jax.random.PRNGKey(0)
-    st = jr(rng)
+        body_mass=go1._mjx_model.body_mass.at[TORSO_BODY_ID].set(base + P))
     ctrl = AdaptivePreloadController(n, dt, TMAX) if ADAPT else None
-    QV, QF, QP, nstep = [], [], [], 0
-    for i in range(STEPS):
-        if ADAPT:
-            st.info["preload_tau0"] = jnp.asarray(ctrl.tau0)
-        if "command" in st.info:
-            st.info["command"] = cmd
-        rng, ar = jax.random.split(rng)
-        a, _ = jp(st.obs, ar)
-        st = js(st, a)
-        nstep += 1
-        QV.append(np.asarray(st.data.qvel))
-        QF.append(np.asarray(st.data.qfrc_actuator))
-        QP.append(np.asarray(st.data.qpos))
-        if ADAPT:
-            ctrl.update(QF[-1][da])                          # per-leg motor torque (after offload)
-        if bool(st.done):
-            break
+    # pre_step writes the slowly-ramping preload into state.info before each step;
+    # callback feeds the per-leg motor torque (after offload) back to the controller.
+    pre_step = (lambda i, st: st.info.__setitem__("preload_tau0", jnp.asarray(ctrl.tau0))) if ADAPT else None
+    callback = (lambda i, st: ctrl.update(np.asarray(st.data.qfrc_actuator)[da])) if ADAPT else None
+    traj = experiment.rollout(env, pol, (1.0, 0.0, 0.0), STEPS,
+                              pre_step=pre_step, callback=callback, record_terminal=True)
+    QV, QF, QP, nstep = traj["qvel"], traj["qfrc"], traj["qpos"], traj["n"]
     w0 = int(nstep * 0.5)                                     # steady window: last half (preload converged)
     if nstep > w0 + 100:
-        QF2, QV2 = np.stack(QF)[w0:], np.stack(QV)[w0:]
+        QF2, QV2 = QF[w0:], QV[w0:]
         elec = metrics.power_breakdown(QF2[:, act], QV2[:, act], dt, kt, r)["elec_noregen"]
-        ctau = float(np.mean(np.abs(np.stack(QF)[w0:][:, da])))
+        ctau = float(np.mean(np.abs(QF2[:, da])))
+        spd = float(np.linalg.norm(QP[-1][:2] - QP[w0][:2])) / max((nstep - 1 - w0) * dt, 1e-9)
     else:
-        elec, ctau = float("nan"), float("nan")
-    QPa = np.stack(QP)
-    spd = float(np.linalg.norm(QPa[-1][:2] - QPa[w0][:2])) / max((nstep - w0) * dt, 1e-9)
+        # too short to have a steady window: do NOT report a meaningless 0.00 speed.
+        elec, ctau, spd = float("nan"), float("nan"), float("nan")
     extra = f"  conv_tau0 {np.round(ctrl.tau0, 1)}" if ADAPT else ""
     print(f"P={P:5.1f}kg: survived {nstep}/{STEPS}  speed {spd:.2f} m/s  elec {elec:6.1f} W  "
           f"mean|calf_mot| {ctau:5.1f}{extra}", flush=True)

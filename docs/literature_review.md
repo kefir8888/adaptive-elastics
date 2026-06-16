@@ -635,8 +635,10 @@ empirical contributions are:
    elastic mechanism *fails* in-loop on the high-geared G1 (ohmic ~4 %; an
    always-on hip-pitch spring is +7 % worse because it fights swing — the
    no-clutch failure mode the clutched literature predicts) but *pays* on the
-   low-geared Go1 (ohmic ~54 %; a constant knee preload holds −17 to −20 % whole-
-   body electrical in-loop, 2 seeds, with no stability cost). This is the
+   low-geared Go1 (ohmic ~54 %; an adaptive constant knee preload cuts cost of
+   transport −14 to −27 % in 3 of 4 conditions, growing with load, across 3 seeds —
+   seed 2 a weak −3 to −8 % outlier — with no stability cost at low-to-mid load,
+   survival degrading above ~7.5 kg). This is the
    platform-level confirmation of the SEA-vs-PEA and Cheetah-vs-ANYmal gearing
    argument, on commercial hardware, with electrical accounting.
 2. **Post-hoc vs in-loop methodology.** Reporting the optimistic post-hoc upper

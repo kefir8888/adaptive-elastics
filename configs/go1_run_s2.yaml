@@ -1,19 +1,24 @@
-# Go1 RUNNING — Stage 2 (run + flight). Warm-start from S1; raise command to ~3.2 m/s; LIGHT
-# flight-friendly tweaks only (NO termination softening, NO energy zeroing — those destabilized the
-# G1). GATE on a measured all-feet-off fraction (real flight) before committing the spring arms.
-# See docs/dog_running_design.md.
+# Go1 RUNNING — Stage 2 (run + flight). Raise command to ~3.2 m/s; LIGHT flight-friendly tweaks
+# only. LEAVE termination at -1 (no softening) and LEAVE the energy penalty ON (the stock Go1
+# `energy` reward is not touched here) — zeroing energy + softening termination is exactly what
+# destabilized the G1. GATE on a measured all-feet-off fraction (real flight, via go1_run_probe.py)
+# before committing the spring arms. See docs/dog_running_design.md.
+#
+# WARM-START (command-line, not a config field): launch from the S1 trot run with
+#   pea-train --config configs/go1_run_s2.yaml --restore <S1_run_dir>
 name: go1_run_s2
 env_name: Go1JoystickFlatTerrain
 seed: 1
 domain_randomization: true
+num_timesteps: 120000000   # ~120 M (design: S2 ~120 M warm-started from S1)
 env_overrides:
   command_config.a: [3.2, 0.4, 0.6]
   reward_config.max_foot_height: 0.15   # stock 0.1 — let the foot lift for a real swing
 reward_scales:
   feet_air_time: 0.4     # stock 0.1 — reward longer swings (flight)
-  lin_vel_z: -0.25       # stock -0.5 — allow ballistic vertical motion (do NOT zero)
+  lin_vel_z: -0.25       # stock -0.5 — allow ballistic vertical motion (HALVE, do NOT zero)
   feet_height: -0.05     # stock -0.2 — relax the low-cadence pin
-  feet_clearance: -1.0   # stock -2.0
+  feet_clearance: -1.0   # stock -2.0 — relax the clearance cap
 spring:
   kind: none
 energy_reward_weight: -1.0e-4

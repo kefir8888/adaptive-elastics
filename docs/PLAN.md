@@ -1,5 +1,15 @@
 # Project plan — milestones & submilestones
 
+> **⚠ SUPERSEDED (2026-06-16) — historical roadmap, kept for the record.** This plan is
+> anchored to the **2026-06-12 G1 hip-pitch roadmap** (Milestones 4–7 below). That line of
+> work is now **closed by a negative result**: the in-loop G1 hip-pitch spring made walking
+> **+7.4 % worse** (Milestone 4, see `RESULTS.md` / `negative_results.md`). The project has
+> since **pivoted to the Go1 quadruped** — the load-carrying walking program is **done and
+> positive**, and the **active direction is the Go1 "dog-running" knee-spring experiment**.
+> For the current go-forward plan use **`docs/NEXT_SESSION.md`** (authoritative handoff) and
+> **`docs/directions.md`** (direction map). The milestone content below is **historical**;
+> do not treat its "NEXT" markers as live.
+
 Living roadmap. Reflects the decisions through 2026-06-12: spring target pivoted
 to **hip-pitch**, **external stiffness control** (params chosen outside the RL
 policy, fed in as observations), mechanism = the **dual-quadratic tunable linear
@@ -43,7 +53,9 @@ spring** (adopted prior art — Hurst 2004 / Migliore 2005, see `mechanism.md`),
 - `analyze --spring`: knee copper −36–42%, total knee electrical −16% on fixed gait.
 - ☐ 3a: run post-hoc on **hip-pitch** with the linear-spring optimum (cheap CPU).
 
-## Milestone 4 — In-loop GO/NO-GO gate (NEXT)
+## Milestone 4 — In-loop GO/NO-GO gate ✅ DONE — NEGATIVE (historical)
+*Ran on the G1 hip-pitch spring; result was **+7.4 % worse** (`RESULTS.md`). The sub-items
+below are the historical to-do list as it stood before the run.*
 Cheapest rigorous test that the effect is real, before any sweep.
 - ☐ 4a: extend `analyze.py` to **whole-leg CoT**, both regen and no-regen.
 - ☐ 4b: settle **G1 Kt/R + regen** (justify from driver specs; no-regen was

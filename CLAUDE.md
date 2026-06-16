@@ -3,11 +3,13 @@
 ## Project goal
 Two parts, **in sequence — finish Part 1 before starting Part 2.**
 
-### Part 1 — Energy efficiency (current focus)
-Test whether adding a tunable **parallel elastic** spring (target now **hip-pitch**,
-not the knee — see `docs/RESULTS.md`) on a humanoid (Unitree G1) reduces the
-*electrical* energy of walking, by offloading motor torque. Headline metric: cost
-of transport / total electrical power.
+### Part 1 — Energy efficiency
+Test whether adding a tunable **parallel elastic** spring (a spring mounted *beside* the
+motor, so it shares the joint's load rather than sitting in the force path) reduces the
+*electrical* energy of walking, by offloading motor torque. Headline metric: cost of
+transport (CoT) — electrical power divided by walking speed. Plain-language definitions of
+every term used here are in `docs/glossary.md`; the full run/checkpoint inventory is in
+`docs/checkpoints.md`.
 
 Mechanism / why this should work:
 - Motor copper loss scales with torque squared: `P_loss ≈ (τ/Kt)² · R`. Offloading
@@ -17,15 +19,24 @@ Mechanism / why this should work:
 - **Parallel**, not series: the goal is torque offloading, not force control. A parallel
   spring sits beside the motor and avoids the large-force-bandwidth penalty of series
   compliance.
-- *Reality check — the study's MAIN FINDING (2026-06-14/15): **gearing is the crux**.*
-  On the high-geared G1 (22.5:1) ohmic is only ~4 % of the budget, and the **in-loop**
-  spring is actually **WORSE** for walking (+7 %, reversing the optimistic post-hoc −3.8 %;
-  the always-on spring fights the gait, no clutch) — **nine negative results** in
-  `docs/negative_results.md`. But on the **LOW-gear Go1 quadruped** (6.33:1, ohmic **54 %**)
-  a **CONSTANT knee preload** cuts **−17 to −20 % in-loop with no stability cost** (2 seeds)
-  — the one positive result. **ACTIVE direction:** the **Go1 load-carrying program** — an
-  adaptive *per-leg* knee preload that scales with payload, one blind load-robust controller;
-  see **`docs/load_program.md`**. Direction map: `docs/directions.md`.
+- *Reality check — the study's MAIN FINDING (2026-06-14/16): **gearing is the crux**.*
+  "Gearing" = the gear ratio between motor and joint; a high ratio multiplies torque so the
+  motor runs at low current, which is why ohmic heating (the heat in the motor windings,
+  `(τ/Kt)²·R`) is a tiny share of the energy bill on a high-geared robot. On the high-geared
+  G1 (knee 22.5:1, hip-pitch 14.3:1) ohmic is only ~4 % of the budget, and the **in-loop**
+  spring (a spring present in the simulation while the policy retrains) is actually **WORSE**
+  for walking (**+7.4 %**, reversing the optimistic offline −3.84 %; the always-on spring
+  fights the gait, no clutch) — this is the project's **central negative result**, catalogued
+  with the others in `docs/negative_results.md`. But on the **LOW-gear Go1 quadruped**
+  (6.33:1, ohmic **54 %**) a **CONSTANT knee preload** (a near-constant offload torque) cuts
+  **CoT −14 to −27 % in 3 of 4 conditions, growing with load** (3 training seeds; seed 2 is a
+  weak −3 to −8 % outlier) — the one positive result. It carries **no stability cost at
+  low-to-mid load, but survival degrades above ~7.5 kg payload**. The **Go1 load-carrying
+  WALKING program is DONE and positive** (`docs/load_program.md`). **ACTIVE direction:** the
+  **Go1 "dog-running" knee-spring experiment** — testing whether the same idea pays for a
+  *running* quadruped, which adds a braking-energy-recovery channel walking lacks. Authoritative
+  plan: **`docs/NEXT_SESSION.md`** + design in **`docs/dog_running_design.md`**. Direction map:
+  `docs/directions.md`.
 
 ### Part 2 — Explosive moves (after Part 1)
 Test whether the **same adaptive elastic** helps EXPLOSIVE moves: vertical **jump

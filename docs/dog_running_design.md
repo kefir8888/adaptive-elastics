@@ -21,16 +21,32 @@ spending spring compute. Without flight, the "running" result collapses back to 
    destabilized G1 attempt 2). **Gate on the measured flight fraction.** ~120 M.
 3. **S3 post-hoc work-loop** (local CPU) — build the calf work-loop from the S2 run trajectory; the **offset
    sets the constant preload**, the **braking lobe sets the stiffness**; decide preload vs stiffness here.
-4. **S4 run + constant preload** — the validated, most-defensible arm.
-5. **S5 run + one-sided linear stiffness** — isolates the braking-energy-recovery channel (conditional on S3).
-6. **S6 second seeds** for the headline arms (match the 2-seed Go1 walking standard).
+4. **S4 run + almost-constant per-leg adaptive preload — the spring we try first.** The exact recipe that gave the
+   walking −14 to −27 %: a low-stiffness, heavily pre-wound spring (≈ constant torque over the calf's small
+   range), one per leg, slowly re-tensioned per-leg by the adaptive controller from each leg's own measured
+   load — passive within a stride. Manufacturable and clutch-free. Config `configs/go1_run_spring_preload.yaml`.
+5. **S5 run + one-sided linear stiffness — DEFERRED.** Run only if the S3 work-loop shows the constant preload
+   leaves braking energy unrecovered (decision rule below). Built but parked: `springs.one_sided_linear` +
+   `configs/go1_run_spring_onesided.yaml` (placeholders await S3). NOT a required condition.
+6. **S6 second seeds** for the spring we settle on (match the 2-seed Go1 walking standard).
 
-## Spring choice (open until S3)
-Walking favoured a **constant preload** (offset-dominated support torque). **Running adds a flexion→extension
-energy exchange a constant torque CANNOT capture** (zero slope = no storage). So running likely favours a
-**one-sided LINEAR STIFFNESS** (store on flexion, return on extension), tuned to the stance-flexion angle —
-or both. Keep `k` modest (~50–70 % of the braking work) and **one-sided** so it does not fight swing-leg
-flexion (the G1 reversal failure mode).
+## Spring choice — lead with the almost-constant spring; decide the rest from the data (re-synced 2026-06-16)
+We did walking with the almost-constant (per-leg adaptive) preload and it worked; **we now apply the same
+recipe to running.** Manufacturing preference order: **almost-constant preload → linear spring → clutch**. A
+clutch or any other within-stride engagement mechanism is a large risk/complexity factor and is a **last
+resort**, used only if the data forces it. (Note: per-leg *adaptive preload* is a slow servo re-tensioning the
+spring between conditions — passive within a stride — which is a far smaller risk than a clutch.) The spring
+TYPE is an OUTPUT of the baseline work-loop, not an assumption: running adds a flexion→extension energy
+exchange a flat torque cannot store, so a stiffness spring *might* do better — but we try the simple, buildable
+spring first and escalate only if the data says so.
+
+Decision rule from the S3 calf work-loop (calf torque vs calf angle over one stride), pre-registered:
+- mostly a flat **offset** (support torque ~independent of angle) → **almost-constant preload** (the walking case);
+- torque rises ~**linearly** with angle (a clear restoring slope) → **linear spring**;
+- a large energy-absorbing region whose torque opposes what an always-on passive spring would give in swing
+  (a passive spring would FIGHT the leg for part of the cycle) → **clutch needed**;
+- anything else (e.g. energy stored only on flexion) → **else** — revisit then (a one-sided stiffness `k`
+  ~50–70 % of the braking work, one-sided so it does not fight swing — the G1 reversal failure mode).
 
 ## Loads — the +2.5 / +5 kg extension (agreed 2026-06-16)
 Get the no-load RUN working first (S1–S5). Then extend to LOAD-CARRYING running, mirroring the validated

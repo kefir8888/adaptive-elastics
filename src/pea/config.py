@@ -20,13 +20,28 @@ class SpringConfig:
     """Parallel knee spring. kind='none' disables it (baseline)."""
 
     kind: str = "none"  # "none" | "constant" | "linear" | "semiparabolic"
+                        # | "one_sided_linear" | "preload_dr"
     joint: str = "knee"  # target joint, matched by substring: "knee" | "hip_pitch"
+                         # | "calf" (Go1 knee)
     k: float = 0.0      # linear stiffness [N*m/rad], or per-element quadratic
                         # stiffness [N*m/rad^2] when kind="semiparabolic"
     theta0: float = 0.0  # equilibrium joint angle, rad (linear)
-    tau0: float = 0.0   # constant preload torque, N*m (constant only)
+    tau0: float = 0.0   # constant preload torque, N*m (constant only);
+                        # for kind="preload_dr" it is the MAX of the U(0,tau0) draw
     p1: float = 0.0     # lower onset, rad (semiparabolic only)
     p2: float = 0.0     # upper onset, rad (semiparabolic only)
+    # one_sided_linear fields (see springs.SpringSpec):
+    theta_engage: float = 0.0  # engage angle, rad (one_sided_linear only)
+    engage_sign: float = 1.0   # which side engages (one_sided_linear only);
+                               # +1 = the side where theta grows past theta_engage
+    # Optional per-episode randomization of the one_sided_linear stiffness k
+    # (DR over k). DEFAULT OFF: the experiment sets k from the S3 work-loop
+    # analysis, so a single fixed k is the default; DR over k is an OPTIONAL
+    # robustness knob, not the headline condition. When k_dr=True the per-episode
+    # k is drawn U(k_dr_min, k_dr_max); k above is then ignored.
+    k_dr: bool = False         # enable stiffness DR (one_sided_linear only)
+    k_dr_min: float = 0.0      # low end of the U(k_dr_min, k_dr_max) draw
+    k_dr_max: float = 0.0      # high end of the U(k_dr_min, k_dr_max) draw
 
 
 @dataclasses.dataclass(frozen=True)
