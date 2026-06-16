@@ -49,6 +49,15 @@ for vx in SPEEDS:
     for i in range(STEPS):
         if "command" in st.info:
             st.info["command"] = cmd
+        if "steps_until_next_cmd" in st.info:
+            # The Go1 joystick env RESAMPLES the command when this counter reaches 0
+            # (joystick.py step()), which silently overwrote our constant command and
+            # -- via the env's "zero command" probability -- made the policy stand
+            # still (achieved speed 0.00 at every commanded speed). Pin it large so the
+            # commanded speed stays fixed for the whole probe.
+            st.info["steps_until_next_cmd"] = jnp.full_like(
+                st.info["steps_until_next_cmd"], 1_000_000
+            )
         rng, ar = jax.random.split(rng)
         a, _ = jp(st.obs, ar)
         st = js(st, a)
