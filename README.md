@@ -6,6 +6,9 @@ offloading torque to a passive spring cuts heat quadratically — **if the gait 
 makes ohmic loss matter.** MuJoCo end-to-end (Playground + MJX + brax PPO); the metric is electrical energy /
 cost of transport, not mechanical work. Full design in `CLAUDE.md`.
 
+> **▶ Resuming / new session?** Start with **`docs/NEXT_SESSION.md`** — the actionable handoff plan for the
+> next campaign (the dog-running knee-spring experiment on immers.cloud).
+
 ## Headline finding: gearing is the crux
 
 | Platform | Gear ratio | Ohmic share of budget | Parallel-spring verdict |
