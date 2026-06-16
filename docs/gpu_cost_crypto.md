@@ -194,3 +194,26 @@ Budget ~10–20 min the first time; subsequent top-ups are ~2 min.
 *Sources consolidated:* Spheron, RunPod, Vast.ai, Lambda, TensorDock, Hyperstack,
 Northflank, IntuitionLabs (prices); Vast.ai billing docs, RunPod funding blog,
 moscow-city.guide Bybit/USDT-Moscow guides, exchange-rates.org (FX) — URLs inline above.
+
+---
+## DECISION + CORRECTION (2026-06-16)
+**Correction to the earlier sections:** the mainstream providers' "crypto" is NOT a direct USDT deposit —
+**Vast.ai** routes through **BitPay / Crypto.com** and RunPod through similar processors, all of which KYC +
+sanctions-screen and likely **block Russian users**. The earlier "just send USDT-TRC20" guidance does **not**
+apply to them.
+
+**Chosen provider: Spheron** (managed GPU cloud, `app.spheron.ai` / `docs.spheron.ai` — NOT the decentralized
+Protocol). Rationale:
+- **USDT/USDC accepted directly** → works from Russia, no KYC processor.
+- **API + CLI** for programmatic instance lifecycle → the agent can create/destroy boxes (no manual SSH-paste).
+- **Bare-metal + SSH + dedicated IP**, Tier 3/4 datacenters, 99.9% SLA → `gpu_box_setup.sh` runs unchanged.
+- **A100 ~$0.85/hr** (a ~25–30 min Go1 run ≈ **$0.35–0.45**). H100 ~$1.46, 4090 ~$0.53.
+- Clore.ai is ~15–30% cheaper but pays in CLORE/BTC (token conversion) and is a variable marketplace.
+
+**Setup (user does 1–3, then hands the agent the API key):**
+1. Create an account at `app.spheron.ai`.
+2. Fund with **USDT** (deposit the P2P-acquired stablecoin).
+3. Generate an **API key** (dashboard → settings/API).
+4. Hand the API key to the agent → it installs the Spheron CLI / uses the API, **verifies with a throwaway
+   create+destroy of a cheap GPU (e.g. a 4090)**, then deploys the A100, bootstraps it, and runs the experiment.
+   The key is kept in an env var, never logged or committed.
