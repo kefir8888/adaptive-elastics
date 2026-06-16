@@ -12,6 +12,7 @@ import jax.numpy as jnp
 import mujoco
 
 from pea import config as cfg_lib, energy, metrics, policy as policy_lib
+from pea.control import AdaptivePreloadController
 from pea.env import make_env
 
 run = pathlib.Path(sys.argv[1])
@@ -36,8 +37,7 @@ dt = float(env.dt)
 cmd = jnp.array([1.0, 0.0, 0.0], dtype=jnp.float32)
 pol = policy_lib.load_policy(env, cfg, run / "policy_params", deterministic=True)
 ADAPT = cfg.spring.kind == "preload_dr"
-ALPHA = float(np.exp(-dt / 15.0))
-KP, RATE, TMAX = 0.2, 2.0, (float(cfg.spring.tau0) if ADAPT else 0.0)
+TMAX = float(cfg.spring.tau0) if ADAPT else 0.0
 nleg = len(da)
 jr, js, jp = jax.jit(env.reset), jax.jit(env.step), jax.jit(pol)
 
@@ -54,21 +54,18 @@ print(f"# {run.name}  payload {PAY}kg  adaptive={ADAPT}", flush=True)
 for vid in range(N):
     rng = jax.random.PRNGKey(vid)
     st = jr(rng)
-    tau0 = np.zeros(nleg)
-    ema = np.zeros(nleg)
+    ctrl = AdaptivePreloadController(nleg, dt, TMAX) if ADAPT else None
     nf = 0
     for i in range(STEPS):
         if ADAPT:
-            st.info["preload_tau0"] = jnp.asarray(tau0)
+            st.info["preload_tau0"] = jnp.asarray(ctrl.tau0)
         if "command" in st.info:
             st.info["command"] = cmd
         rng, ar = jax.random.split(rng)
         a, _ = jp(st.obs, ar)
         st = js(st, a)
         if ADAPT:
-            cm = np.asarray(st.data.qfrc_actuator)[da]
-            ema = ALPHA * ema + (1 - ALPHA) * cm
-            tau0 = np.clip(tau0 + np.clip(KP * (ema - 0.0), -RATE, RATE) * dt, 0.0, TMAX)
+            ctrl.update(np.asarray(st.data.qfrc_actuator)[da])
         mjd.qpos[:] = np.asarray(st.data.qpos)
         mjd.qvel[:] = np.asarray(st.data.qvel)
         mujoco.mj_forward(mj, mjd)
