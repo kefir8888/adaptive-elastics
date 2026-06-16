@@ -8,6 +8,29 @@ happened, what's open/broken, and the single next step.
 
 ---
 
+## 2026-06-17 — Dog-running pipeline ran on an H100; S2 STANDS (no running) → command-distribution fix needed
+- **Current state:** ran the full staged Go1 dog-running pipeline on a rented immers H100, fully detached
+  (S0 walker → S1 trot → S2 run → flight gate). Rewards: S0 28.2, S1 26.4, S2 22.6; S0–S2 trained in ~40 min
+  total (the 12-DoF Go1 on an H100 is ~3–4× faster than the G1-based estimate). Checkpoints pulled to
+  `outputs/runs/` (s0, s1) and `outputs/box_runs/` (s0–s2 + probe logs). Box powered off / deleted.
+- **Found + fixed a probe bug** (`711d578`): `go1_run_probe` set `state.info["command"]` but not
+  `steps_until_next_cmd`, so the Go1 env resampled the command (sometimes to zero) and the policy stood —
+  a false "no flight". Pinned the resample counter.
+- **The finding (real, not a probe artifact):** after the fix, a direct diagnostic confirmed the command
+  reaches the policy (`info.command=[3,0,0]` held every step) but the base velocity decays to ~0 — the S2
+  policy genuinely **stands** under a sustained high forward command. Its high training reward
+  (`tracking_lin_vel` 541) reflects tracking the mostly-**low** command distribution (the Go1 sampler has a
+  high zero-command probability), not running. **Raising `command_config.a` amplitude alone does NOT elicit
+  running**; no flight emerged; the spring stages were correctly not run (pre-registered gate honoured).
+- **Decided:** stop at the flight gate (no running gait → nothing to test the spring on). Cost ~1.5
+  H100-hours (~$2–3; well under the ~$18–20 budget, because we stopped at the gate).
+- **Open:** the runner needs a command-distribution **curriculum** to force forward running, not just a higher amplitude.
+- **Next:** add an env override / small subclass that reduces the zero-command probability and/or narrows the
+  command to a high-forward band (e.g. vx∈[2.5,3.5], trimmed lateral/yaw); retrain S2 from S1; re-gate on
+  flight; then S3 work-loop + S4 spring as planned.
+
+---
+
 ## 2026-06-16 (session 2) — Code/checkpoint audit, iron-loss bound, doc reconciliation, dog-run prep
 - **Current state:** Go1 load-carrying WALKING program **DONE + positive** (CoT −14 to −27 % in 3 of 4
   conditions, growing with load; seed 2 a weak −3 to −8 % outlier; survival degrades >~7.5 kg). G1 walking
