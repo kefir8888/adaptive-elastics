@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# Staged Go1 "dog-running" experiment, run detached on the GPU box.
+# Staged Go1 "dog-running" experiment with the forward-command CURRICULUM, run detached on the box.
 #   cd ~/adaptive-elastics && nohup bash scripts/run_dog_pipeline.sh > ~/run_all.log 2>&1 &
-# Stages (each warm-starts from the previous):
-#   S0 walker (from scratch) -> gate on reward -> S1 trot -> S2 run+flight
-#   -> FLIGHT GATE (a real all-feet-off window?) -> if yes: S4a no-spring control + S4b spring.
-# It does NOT power off the box: the driver pulls results, then powers off (so results are never
-# lost to a mid-sync shutdown). A separate hard backstop power-off guards against a runaway.
+# Sequence (each warm-starts from the previous):
+#   S0 walker (scratch) -> C1 [1.2-1.8] -> C2 [1.8-2.5] -> C3 [2.5-3.2]+flight tweaks
+#   -> FLIGHT GATE -> if a real all-feet-off window: S4a no-spring control + S4b preload spring.
+# Gates: S0 on reward; C1/C2 on achieved forward speed (constant-command probe); C3 on flight.
+# Does NOT power off the box (the driver pulls results then halts, so nothing is lost to a mid-sync shutdown).
 set -uo pipefail
+export PATH="$HOME/.local/bin:$PATH"
 cd "$(cd "$(dirname "$0")/.." && pwd)"
 RUNS="${PEA_RUNS_DIR:-$HOME/runs}"; mkdir -p "$RUNS"
 SUMMARY="$RUNS/SUMMARY.txt"; : > "$SUMMARY"
@@ -18,7 +19,7 @@ import sys, json
 ls = [l for l in sys.stdin if l.strip()]
 print(json.loads(ls[-1]).get("eval/episode_reward", "nan") if ls else "nan")' 2>/dev/null || echo nan; }
 
-run_stage(){ # tag config [restore_dir]; sets STAGE_DIR/STAGE_RC/STAGE_REW
+run_stage(){ # tag config [restore_dir]; sets STAGE_DIR/STAGE_REW
   local tag="$1" cfg="$2" restore="${3:-}"
   local slog="$RUNS/$tag.train.log"
   say "START $tag cfg=$cfg ${restore:+restore=$restore}"
@@ -29,43 +30,52 @@ run_stage(){ # tag config [restore_dir]; sets STAGE_DIR/STAGE_RC/STAGE_REW
   local rew; rew=$(last_reward "$dir")
   say "END $tag rc=$rc reward=$rew dir=$dir"
   note "$tag rc=$rc reward=$rew dir=$dir"
-  STAGE_DIR="$dir"; STAGE_RC=$rc; STAGE_REW=$rew
+  STAGE_DIR="$dir"; STAGE_REW="$rew"
 }
+
+probe_speed(){ # dir tag cmd  -> echoes achieved forward speed (m/s) at a constant command
+  uv run python scripts/go1_run_probe.py "$1" 700 "$3" > "$RUNS/$2.probe.log" 2>&1 || true
+  grep -oE 'speed [0-9.]+' "$RUNS/$2.probe.log" | head -1 | awk '{print $2+0}'
+}
+
+ge(){ python3 -c "import sys; sys.exit(0 if float('$1') >= float('$2') else 1)" 2>/dev/null; }
 
 trap 'say "PIPELINE EXIT"; touch "$RUNS/PIPELINE_DONE"' EXIT
 say "PIPELINE START $(hostname) $(date -u)"; note "started $(date -u) on $(hostname)"
 
 # --- S0: flat walker (from scratch) ---
-run_stage s0_walker configs/go1_run_s0_walker.yaml
-S0="$STAGE_DIR"
-if ! python3 -c "import sys; sys.exit(0 if float('$STAGE_REW') > 8 else 1)" 2>/dev/null; then
-  say "GATE S0 FAIL: reward=$STAGE_REW <= 8 (walker not learning) -> STOP"; note "STOP: S0 gate (reward=$STAGE_REW)"; exit 1
-fi
+run_stage s0_walker configs/go1_run_s0_walker.yaml; S0="$STAGE_DIR"
+ge "$STAGE_REW" 8 || { say "GATE S0 FAIL reward=$STAGE_REW <=8 -> STOP"; note "STOP: S0 gate ($STAGE_REW)"; exit 1; }
 say "GATE S0 OK reward=$STAGE_REW"
 
-# --- S1: fast trot (warm-start S0) ---
-run_stage s1_trot configs/go1_run_s1.yaml "$S0"; S1="$STAGE_DIR"
+# --- C1: forced-forward jog [1.2,1.8] ---
+run_stage c1 configs/go1_run_c1.yaml "$S0"; C1="$STAGE_DIR"
+SP=$(probe_speed "$C1" c1 1.5); say "C1 achieved speed ${SP} m/s at cmd 1.5"; note "C1 speed=$SP"
+ge "${SP:-0}" 1.0 || { say "GATE C1 FAIL speed=$SP <1.0 (not running forward) -> STOP"; note "STOP: C1 speed $SP"; exit 1; }
 
-# --- S2: run + flight (warm-start S1) ---
-run_stage s2_run configs/go1_run_s2.yaml "$S1"; S2="$STAGE_DIR"
+# --- C2: forced-forward run [1.8,2.5] ---
+run_stage c2 configs/go1_run_c2.yaml "$C1"; C2="$STAGE_DIR"
+SP=$(probe_speed "$C2" c2 2.2); say "C2 achieved speed ${SP} m/s at cmd 2.2"; note "C2 speed=$SP"
+ge "${SP:-0}" 1.5 || { say "GATE C2 FAIL speed=$SP <1.5 -> STOP"; note "STOP: C2 speed $SP"; exit 1; }
 
-# --- FLIGHT GATE: probe S2 for a real all-feet-off window ---
-say "FLIGHT PROBE $S2"
-uv run python scripts/go1_run_probe.py "$S2" 700 > "$RUNS/s2_flight_probe.log" 2>&1 || true
-cat "$RUNS/s2_flight_probe.log" || true
-note "--- flight probe ---"; grep -E 'cmd .* m/s|true_flight' "$RUNS/s2_flight_probe.log" >> "$SUMMARY" 2>/dev/null || true
+# --- C3: fast run + flight tweaks [2.5,3.2] ---
+run_stage c3 configs/go1_run_c3.yaml "$C2"; C3="$STAGE_DIR"
 
-if grep -q 'true_flight True' "$RUNS/s2_flight_probe.log" 2>/dev/null; then
+# --- FLIGHT GATE: probe C3 across running speeds ---
+say "FLIGHT PROBE $C3"
+uv run python scripts/go1_run_probe.py "$C3" 700 2.6,3.0,3.2 > "$RUNS/c3_flight_probe.log" 2>&1 || true
+cat "$RUNS/c3_flight_probe.log" || true
+note "--- C3 flight probe ---"; grep -E 'cmd .* m/s|true_flight' "$RUNS/c3_flight_probe.log" >> "$SUMMARY" 2>/dev/null || true
+
+if grep -q 'true_flight True' "$RUNS/c3_flight_probe.log" 2>/dev/null; then
   say "FLIGHT GATE OK: a real all-feet-off window emerged -> running the spring stages"
   note "FLIGHT: YES -> S4a + S4b"
-  # S4a: matched NO-SPRING control (S2 + 120M, identical to S4b except no spring)
-  run_stage s4a_control configs/go1_run_s2.yaml "$S2"
-  # S4b: per-leg adaptive preload spring (the almost-constant spring; same recipe as walking)
-  run_stage s4b_spring configs/go1_run_spring_preload.yaml "$S2"
-  note "DONE: S0-S2 + S4a/S4b complete"
+  run_stage s4a_control configs/go1_run_c3.yaml "$C3"           # matched NO-SPRING control (C3 settings, +120M)
+  run_stage s4b_spring  configs/go1_run_spring_preload.yaml "$C3"  # per-leg adaptive preload (the almost-constant spring)
+  note "DONE: curriculum + S4a/S4b complete"
   say "PIPELINE COMPLETE (with spring stages)"
 else
-  say "FLIGHT GATE: no true all-feet-off window -> it is a fast trot. Per design, STOP (this collapses to the known walking result); no spring compute spent."
-  note "FLIGHT: NO -> stopped after S2 (fast trot)"
+  say "FLIGHT GATE: no true all-feet-off window -> running but grounded (or still slow). Stop; report; decide on the spring."
+  note "FLIGHT: NO -> stopped after C3"
   say "PIPELINE COMPLETE (stopped at flight gate)"
 fi
