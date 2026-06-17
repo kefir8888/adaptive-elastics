@@ -85,6 +85,16 @@ class RunConfig:
     # (Go1 rough = 5 cm max bumps); 0.5 halves all bumps (2.5 cm) for an easier-terrain
     # start / roughness curriculum. No-op on flat terrain (no hfields). Eval must match.
     terrain_height_scale: float = 1.0
+    # Forward-running command override (Go1). Empty dict (default) = stock behaviour:
+    # the joystick samples a SYMMETRIC velocity command (vx in [-1.5, 1.5], mean zero,
+    # sometimes zeroed), so the policy is never required to run forward and learns to
+    # stand. When this dict is non-empty, make_env replaces the env's sample_command
+    # with one that always commands FORWARD motion. Expected keys (all floats):
+    #   vx_min, vx_max  -- forward speed range (BOTH positive); vx ~ U(vx_min, vx_max)
+    #   vy_max          -- sideways speed magnitude; vy ~ U(-vy_max, vy_max)
+    #   vyaw_max        -- turn-rate magnitude;     vyaw ~ U(-vyaw_max, vyaw_max)
+    # No axis is ever zeroed, so every episode demands forward running.
+    command_forward: dict = dataclasses.field(default_factory=dict)
 
 
 def load_config(path: str | pathlib.Path) -> RunConfig:

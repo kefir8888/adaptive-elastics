@@ -1,0 +1,24 @@
+# Go1 RUNNING — Phase C, stage 2 (forward-command curriculum, faster rung).
+# Same forward-command fix as C1 (the stock symmetric/zeroing sampler made the policy stand),
+# but at a HIGHER forward-speed band: vx in [1.8, 2.5] m/s (both positive, never zeroed).
+# Stock rewards — no reward surgery yet. See docs/dog_running_design.md.
+#
+# WARM-START (command-line, not a config field): launch from the C1 run with
+#   pea-train --config configs/go1_run_c2.yaml --restore <C1_run_dir>
+# GATE: commit to C3 only once the policy ACHIEVES the commanded forward speed, via
+# go1_run_probe.py.
+name: go1_run_c2
+env_name: Go1JoystickFlatTerrain
+seed: 1
+domain_randomization: true
+num_timesteps: 100000000   # ~100 M
+command_forward:
+  vx_min: 1.8
+  vx_max: 2.5
+  vy_max: 0.3
+  vyaw_max: 0.5
+spring:
+  kind: none
+energy_reward_weight: -1.0e-4
+energy_motor: go1_knee
+ppo: {}

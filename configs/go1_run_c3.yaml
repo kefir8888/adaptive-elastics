@@ -1,0 +1,33 @@
+# Go1 RUNNING — Phase C, stage 3 (forward-command curriculum, run + flight).
+# Same forward-command fix as C1/C2 (the stock symmetric/zeroing sampler made the policy
+# stand), now at the fastest band: vx in [2.5, 3.2] m/s (both positive, never zeroed). PLUS the
+# LIGHT flight-friendly reward tweaks from go1_run_s2.yaml (longer swings, relaxed vertical and
+# clearance pins) to coax a real flight phase. LEAVE termination at -1 and the energy penalty ON
+# (zeroing energy + softening termination is what destabilized the G1). See docs/dog_running_design.md.
+#
+# WARM-START (command-line, not a config field): launch from the C2 run with
+#   pea-train --config configs/go1_run_c3.yaml --restore <C2_run_dir>
+# GATE: commit to the spring arms only once there is a REAL all-feet-off window (measured
+# all-feet-off fraction, via go1_run_probe.py).
+name: go1_run_c3
+env_name: Go1JoystickFlatTerrain
+seed: 1
+domain_randomization: true
+num_timesteps: 120000000   # ~120 M
+command_forward:
+  vx_min: 2.5
+  vx_max: 3.2
+  vy_max: 0.3
+  vyaw_max: 0.4
+env_overrides:
+  reward_config.max_foot_height: 0.15   # stock 0.1 — let the foot lift for a real swing
+reward_scales:
+  feet_air_time: 0.4     # stock 0.1 — reward longer swings (flight)
+  lin_vel_z: -0.25       # stock -0.5 — allow ballistic vertical motion (HALVE, do NOT zero)
+  feet_height: -0.05     # stock -0.2 — relax the low-cadence pin
+  feet_clearance: -1.0   # stock -2.0 — relax the clearance cap
+spring:
+  kind: none
+energy_reward_weight: -1.0e-4
+energy_motor: go1_knee
+ppo: {}

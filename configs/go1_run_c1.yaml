@@ -1,0 +1,26 @@
+# Go1 RUNNING — Phase C, stage 1 (forward-command curriculum, first rung).
+# Phase 0 fix: the stock Go1 joystick samples a SYMMETRIC velocity command (forward speed
+# in [-1.5, 1.5], mean zero, often zeroed), so the policy is never asked to run forward and
+# learned to STAND. The `command_forward` block below swaps in a sampler that always commands
+# forward motion (vx in [1.2, 1.8] m/s, both positive, never zeroed). Stock rewards — no
+# reward surgery yet (the G1 lesson). See docs/dog_running_design.md.
+#
+# WARM-START (command-line, not a config field): launch from the S0 walker with
+#   pea-train --config configs/go1_run_c1.yaml --restore <S0_run_dir>
+# GATE: commit to C2 only once the policy ACHIEVES the commanded forward speed (measured
+# mean forward velocity tracks the command), via go1_run_probe.py.
+name: go1_run_c1
+env_name: Go1JoystickFlatTerrain
+seed: 1
+domain_randomization: true
+num_timesteps: 100000000   # ~100 M
+command_forward:
+  vx_min: 1.2
+  vx_max: 1.8
+  vy_max: 0.3
+  vyaw_max: 0.5
+spring:
+  kind: none
+energy_reward_weight: -1.0e-4
+energy_motor: go1_knee
+ppo: {}

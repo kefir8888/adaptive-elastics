@@ -46,6 +46,16 @@ def make_env(cfg: RunConfig):
         else:
             env_cfg[key] = value
     env = registry.load(cfg.env_name, config=env_cfg)
+    if cfg.command_forward:
+        # The stock Go1 joystick samples a SYMMETRIC velocity command (forward speed
+        # in [-1.5, 1.5], mean zero, sometimes zeroed). With a mean-zero, often-zero
+        # forward command the policy is never required to run forward, so it just
+        # learned to stand. Swap in a sampler that always commands forward motion so
+        # the policy is forced to run. We bind it onto the actual env instance that
+        # owns sample_command (registry.load returns it directly, but walk the
+        # _env/.env chain just in case it is nested) BEFORE the trainer wraps and jits
+        # the env, so the running env uses the forward command.
+        bind_forward_command(env, cfg.command_forward)
     if cfg.terrain_height_scale != 1.0 and getattr(env, "_mjx_model", None) is not None \
             and int(env._mjx_model.nhfield) > 0:
         # Scale rough-terrain bump heights for an easier-terrain start / roughness
@@ -74,6 +84,86 @@ def make_env(cfg: RunConfig):
     if cfg.energy_reward_weight != 0.0:
         env = ElectricalRewardWrapper(env, cfg.energy_reward_weight, cfg.energy_motor)
     return env
+
+
+def make_forward_sampler(cmd: dict):
+    """Build a replacement `sample_command(self, rng, x_k)` that always commands
+    FORWARD motion.
+
+    `cmd` carries vx_min, vx_max, vy_max, vyaw_max (floats). The returned function
+    has the SAME signature and return shape as the stock Go1
+    `Joystick.sample_command`: it takes the random key and the current command x_k
+    (ignored — we re-draw every time) and returns a length-3 jax array
+    [vx, vy, vyaw]. Unlike the stock sampler it draws forward speed from a
+    one-sided range U(vx_min, vx_max) (both positive, so always forward) and NEVER
+    zeroes any axis, so every episode demands forward running.
+    """
+    import jax
+    import jax.numpy as jp
+
+    vx_min = float(cmd["vx_min"])
+    vx_max = float(cmd["vx_max"])
+    vy_max = float(cmd["vy_max"])
+    vyaw_max = float(cmd["vyaw_max"])
+
+    def sample_command(self, rng, x_k):
+        # x_k (the current command) is intentionally unused: we re-draw a fresh
+        # forward command each time rather than mixing toward the old one.
+        del x_k
+        vx_rng, vy_rng, vyaw_rng = jax.random.split(rng, 3)
+        vx = jax.random.uniform(vx_rng, (), minval=vx_min, maxval=vx_max)
+        vy = jax.random.uniform(vy_rng, (), minval=-vy_max, maxval=vy_max)
+        vyaw = jax.random.uniform(vyaw_rng, (), minval=-vyaw_max, maxval=vyaw_max)
+        return jp.array([vx, vy, vyaw])
+
+    return sample_command
+
+
+def bind_forward_command(env, cmd: dict):
+    """Bind the forward-command sampler onto the env instance that owns
+    `sample_command`.
+
+    registry.load returns the joystick env directly, but to be safe we walk the
+    `_env` / `.env` chain to find the instance that actually defines
+    `sample_command` and patch THAT one (so the override survives if the loader
+    ever returns a wrapped env). Patches in place; returns the patched instance.
+
+    We patch TWO entry points:
+    1. `sample_command` — the env re-draws the command here every ~5 s of an
+       episode (and on done), so this is the main fix.
+    2. `reset` — the env's reset draws the FIRST command of each episode with its
+       own symmetric uniform (it does NOT call sample_command), so without this the
+       first ~5 s of every episode would still command a random, possibly backward
+       velocity. We let the original reset run, then overwrite the initial command
+       with a forward draw so the episode is commanded forward from step one.
+    """
+    import types
+
+    target = env
+    # Walk inward until we find the instance that owns sample_command.
+    while not hasattr(target, "sample_command"):
+        if hasattr(target, "_env"):
+            target = target._env
+        elif hasattr(target, "env"):
+            target = target.env
+        else:
+            raise RuntimeError("no env in the chain defines sample_command")
+    sampler = make_forward_sampler(cmd)
+    target.sample_command = types.MethodType(sampler, target)
+
+    orig_reset = target.reset
+
+    def forward_reset(self, rng):
+        import jax
+
+        rng, key = jax.random.split(rng)
+        state = orig_reset(rng)
+        # Replace the symmetric initial command with a forward one (x_k is unused).
+        state.info["command"] = self.sample_command(key, state.info["command"])
+        return state
+
+    target.reset = types.MethodType(forward_reset, target)
+    return target
 
 
 class _EnvWrapper:

@@ -1,20 +1,24 @@
-# Go1 RUNNING — Stage 5 (run + one-sided linear-stiffness knee spring). Isolates the
+# Go1 RUNNING — Phase C spring arm (run + one-sided linear-stiffness knee spring). Isolates the
 # braking-energy-recovery channel a constant preload CANNOT capture: a linear spring that engages on
 # ONLY ONE side of theta_engage (stores energy as the knee bends in stance, returns it on extension)
 # and is exactly zero on the other side, so it does not fight swing-leg motion (the G1 reversal
-# failure mode). The spring is the ONLY difference from go1_run_s2.yaml — every env override, reward
-# tweak, energy weight, motor, and seed below is BYTE-IDENTICAL to S2 (parity).
-# See docs/dog_running_design.md.
+# failure mode). The spring is the ONLY difference from go1_run_c3.yaml — the forward-command block,
+# every env override, reward tweak, energy weight, motor, and seed below is BYTE-IDENTICAL to C3
+# (parity). See docs/dog_running_design.md.
 #
-# WARM-START (command-line, not a config field): launch from the S2 run with
-#   pea-train --config configs/go1_run_spring_onesided.yaml --restore <S2_run_dir>
+# WARM-START (command-line, not a config field): launch from the C3 run with
+#   pea-train --config configs/go1_run_spring_onesided.yaml --restore <C3_run_dir>
 name: go1_run_spring_onesided
 env_name: Go1JoystickFlatTerrain
 seed: 1
 domain_randomization: true
-num_timesteps: 120000000   # ~120 M, matching S2
+num_timesteps: 120000000   # ~120 M, matching C3
+command_forward:
+  vx_min: 2.5
+  vx_max: 3.2
+  vy_max: 0.3
+  vyaw_max: 0.4
 env_overrides:
-  command_config.a: [3.2, 0.4, 0.6]
   reward_config.max_foot_height: 0.15
 reward_scales:
   feet_air_time: 0.4
