@@ -32,6 +32,12 @@ def scale_hfield(hfield_size, factor: float):
 
 
 def make_env(cfg: RunConfig):
+    # Importing g1_run_env registers the running env "G1JoystickRun" in the
+    # Playground registry (side effect on import). Harmless if the config does not
+    # use it; required before registry.load when env_name is the runner. Does not
+    # touch G1JoystickFlatTerrain or the Go1 path.
+    from pea import g1_run_env  # noqa: F401
+
     env_cfg = registry.get_default_config(cfg.env_name)
     env_cfg.impl = cfg.impl  # 'jax', not the broken Warp default
     for key, value in cfg.reward_scales.items():
@@ -91,12 +97,16 @@ def make_forward_sampler(cmd: dict):
     FORWARD motion.
 
     `cmd` carries vx_min, vx_max, vy_max, vyaw_max (floats). The returned function
-    has the SAME signature and return shape as the stock Go1
-    `Joystick.sample_command`: it takes the random key and the current command x_k
-    (ignored — we re-draw every time) and returns a length-3 jax array
-    [vx, vy, vyaw]. Unlike the stock sampler it draws forward speed from a
-    one-sided range U(vx_min, vx_max) (both positive, so always forward) and NEVER
-    zeroes any axis, so every episode demands forward running.
+    returns a length-3 jax array [vx, vy, vyaw]. Unlike the stock sampler it draws
+    forward speed from a one-sided range U(vx_min, vx_max) (both positive, so
+    always forward) and NEVER zeroes any axis, so every episode demands forward
+    running.
+
+    `x_k` (the current command) is accepted but OPTIONAL so this composes with two
+    different host signatures: the Go1 walk env calls `sample_command(rng, x_k)`
+    (it mixes toward the old command), while the G1 walk env calls
+    `sample_command(rng)` with no current command. We ignore x_k either way (we
+    re-draw a fresh forward command every time), so one sampler serves both robots.
     """
     import jax
     import jax.numpy as jp
@@ -106,9 +116,9 @@ def make_forward_sampler(cmd: dict):
     vy_max = float(cmd["vy_max"])
     vyaw_max = float(cmd["vyaw_max"])
 
-    def sample_command(self, rng, x_k):
-        # x_k (the current command) is intentionally unused: we re-draw a fresh
-        # forward command each time rather than mixing toward the old one.
+    def sample_command(self, rng, x_k=None):
+        # x_k (the current command) is intentionally unused and optional: the Go1
+        # passes it, the G1 does not. Either way we re-draw a fresh forward command.
         del x_k
         vx_rng, vy_rng, vyaw_rng = jax.random.split(rng, 3)
         vx = jax.random.uniform(vx_rng, (), minval=vx_min, maxval=vx_max)

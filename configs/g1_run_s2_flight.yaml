@@ -1,0 +1,36 @@
+# G1 running CURRICULUM, Stage 2 (run + flight) — SKETCH, not finalized.
+# Uses the flight-enabling env subclass (env_name: G1JoystickRun): air-time un-capped
+# to 0.8 s, gait freq widened to 1.6-2.2 Hz, feet_phase down-weighted 1.0->0.3, plus the
+# velocity-gated flight_bonus / double_stance terms (defaults baked into the env config;
+# override here if needed). command_forward forces a forward run (the G1 sampler is
+# symmetric/zeroing otherwise). Warm-start from the S1 jog checkpoint. Build verified;
+# NOT yet trained.
+name: g1_run_s2_flight
+env_name: G1JoystickRun
+seed: 1
+domain_randomization: true
+num_timesteps: 200000000
+env_overrides:
+  lin_vel_x: [0.8, 2.6]
+  reward_config.tracking_sigma: 0.5
+  reward_config.max_foot_height: 0.22
+reward_scales:
+  tracking_lin_vel: 1.5
+  termination: -50.0
+  feet_phase: 0.3          # down-weighted (env default already 0.3; explicit for parity)
+  feet_air_time: 4.0
+  flight_bonus: 1.0        # the velocity-gated both-feet-airborne bonus (env-defined term)
+  double_stance: -1.0      # the both-feet-down penalty while moving (env-defined term)
+  feet_slip: -0.5
+  lin_vel_z: -0.2
+  torques: -2.0e-5
+command_forward:           # force a forward run; the stock G1 sampler is symmetric/zeroing
+  vx_min: 0.8
+  vx_max: 2.6
+  vy_max: 0.2
+  vyaw_max: 0.5
+spring:
+  kind: none
+energy_reward_weight: 0.0  # OFF while eliciting the run; restored in the final stage
+energy_motor: g1
+ppo: {}
