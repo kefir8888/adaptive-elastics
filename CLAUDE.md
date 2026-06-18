@@ -36,7 +36,21 @@ Mechanism / why this should work:
   **Go1 "dog-running" knee-spring experiment** — testing whether the same idea pays for a
   *running* quadruped, which adds a braking-energy-recovery channel walking lacks. Authoritative
   plan: **`docs/NEXT_SESSION.md`** + design in **`docs/dog_running_design.md`**. Direction map:
-  `docs/directions.md`.
+  `docs/directions.md`. **UPDATE 2026-06-18:** the forward-command curriculum SOLVED the standing collapse —
+  the dog now genuinely RUNS (C1 1.47 m/s, C2 2.16 m/s) — but the fast+flight C3 stage over-corrected back to
+  standing, so there is **no flight phase yet** and the running-spring test is still pending (next: a gentler
+  C3). New infrastructure: a `command_forward` forward-command override (the collapse was a symmetric/zeroed
+  command distribution, not a too-high target) and the G1 flight-enabling env subclass `G1JoystickRun`
+  (`src/pea/g1_run_env.py`). Presentation materials archived in `outputs/_locomotion_archive/presentation/`.
+  **UPDATE 2026-06-19 — NEW active direction (gravity compensation); the dog-running AND G1-running LOCOMOTION
+  tracks are SUSPENDED.** A Part-1 spinoff testing parallel springs on joints with CONSTANT-SIGN gravity load
+  (body up/down, loading/unloading) on two mobile-manipulator robots loaded from EXTERNAL URDFs (Galaxea R1
+  wheeled humanoid; LimX W1 wheeled quadruped). The load never reverses, so a PERMANENT clutchless parallel
+  spring is unambiguously good — and the win is LARGE on BOTH high-gear (Galaxea torso lift, −95% torso-motor /
+  −21% whole-robot @150 W computer) and low-gear (LimX knee during wheeled roll, −98% / −26%) platforms,
+  because it offloads the constant-sign load (lift work / stance-holding ohmic), which is gear-INDEPENDENT — the
+  opposite of the walking result where gearing was the crux. Reporting bundle `outputs/gravity_compensation/`
+  (videos, plots, combined table, README); see the 2026-06-19 JOURNAL entry.
 
 ### Part 2 — Explosive moves (after Part 1)
 Test whether the **same adaptive elastic** helps EXPLOSIVE moves: vertical **jump
@@ -120,12 +134,16 @@ sessions and start fresh ones freely (a new session reloads this file automatica
 - `src/pea/` — shared core, imported by everything:
   - `env.py` (G1 walking env; optionally injects spring torque)
   - `springs.py` (`τ_spring(θ)`: linear + nonlinear/tunable)
-  - `energy.py` (copper-loss model + cost of transport)
+  - `energy.py` (copper-loss model + cost of transport; `MOTORS` incl. `limx_knee`, `galaxea_torso`, `galaxea_arm`)
   - `policy.py` (network def + load/save), `config.py`
-- `scripts/` — `train.py` (Colab), `rollout.py` (local), `analyze.py` (local)
-- `configs/` — no-spring (`baseline.yaml`, `walk_baseline.yaml`) + spring arms (`spring_hip_linear.yaml`, `spring_linear.yaml`, `spring_constant.yaml`, `spring_semiparabolic.yaml`)
+  - gravity-comp direction: `urdf_loader.py` (load EXTERNAL ROS/URDF robots into MuJoCo: package:// + glb→obj),
+    `gravcomp.py` (trajectory, torque, electrical energy, spring fit, reduced-model IK), `render_util.py` (offscreen video + scene)
+- `scripts/` — `train.py` (Colab), `rollout.py` (local), `analyze.py` (local); gravity-comp:
+  `galaxea_lift.py`, `limx_roll.py`, `gravcomp_table.py`, `setup_robots.sh` (fetch/convert robots), `collect_report.sh`
+- `configs/` — no-spring (`baseline.yaml`, `walk_baseline.yaml`) + spring arms (`spring_hip_linear.yaml`, `spring_linear.yaml`, `spring_constant.yaml`, `spring_semiparabolic.yaml`); gravity-comp: `galaxea_lift.yaml`, `limx_roll.yaml`
 - `notebooks/colab_train.ipynb` — thin runner: pip-install repo, mount Drive, call train.py
-- `outputs/` — gitignored; one folder per run (config, checkpoint, metrics, trajectory)
+- `external/` — gitignored; cloned robot descriptions (fiveages + LimX), regenerate with `scripts/setup_robots.sh`
+- `outputs/` — gitignored; `gravity_compensation/` (active reporting bundle), `_locomotion_archive/` (suspended-track artifacts), one folder per training run (config, checkpoint, metrics, trajectory)
 
 ## Critical design rules
 - The spring lives in `src/pea/springs.py` and MUST be callable two ways: as an in-sim
@@ -142,6 +160,15 @@ Edit in VS Code → `git push` to GitHub → Colab `pip install`s the repo + run
 "Google Drive for desktop" mirrors it to the Mac → `analyze.py` reads the synced folder.
 
 ## Constraints & gotchas — what to AVOID
+- **Gravity-comp direction — MuJoCo `mj_inverse` is unreliable** on the reduced torso model: it returned a
+  large SPURIOUS base-joint torque (640 vs 15 N·m, verified against the explicit equation of motion). Use
+  `M·q̈ + qfrc_bias` (`gravcomp.multi_joint_torque`), NOT `mj_inverse`.
+- **Loading external URDFs into MuJoCo** (`urdf_loader`): resolve `package://`, convert `.glb`→`.obj` (MuJoCo
+  decodes only STL/OBJ/MSH; `setup_robots.sh` pre-converts), and compile with `discardvisual="false"` (default
+  true drops visual meshes AND any added skybox/floor textures → dark renders) + `fusestatic="false"` (default
+  fuses welded link bodies, removing IK target bodies like `torso_link4`). URDF full-extension pose is an IK
+  singularity → seed the IK bent. Velocity-servo wheels micro-slip on soft contact → bill rolling-resistance
+  transport analytically (Crr·m·g·distance), not the servo actuator force.
 - **Always `impl: jax`** (a RunConfig field): Playground 0.2.0 defaults the env to
   MuJoCo Warp, which is broken on Mac and was never validated for this project.
 - **jax pinned `<0.10`**: brax 0.14.2 (latest) calls `jax.device_put_replicated`,

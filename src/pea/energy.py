@@ -67,6 +67,24 @@ MOTORS: dict[str, MotorConstants] = {
     # estimate (winding unpublished, ~0.05-0.3) -> R/Kt^2 ~ 0.29, ~120x the geared
     # G1 (0.0025). LOW gear ARMS the ohmic (tau^2) lever — the point of this track.
     "go1_knee": MotorConstants(kt=0.64, r=0.12),
+    # --- gravity-compensation direction (mobile manipulators), 2026-06-18 ---
+    # LimX W1 (WL_P311D) knee (KFE), ±60 N*m LOW-gear QDD. LimX publishes NO Kt/R;
+    # ESTIMATE scaled from the GO-M8010-6 / CubeMars AK80 class to a 60 N*m / ~6.3:1
+    # frame -> joint-side Kt~1.5, R~0.06 => R/Kt^2 ~ 0.027 (band 0.018-0.036).
+    # Ohmic-significant (low gear) but less extreme than the smaller Go1 unit.
+    "limx_knee": MotorConstants(kt=1.5, r=0.06),
+    # Galaxea R1 torso-lift joint, HIGH-gear (harmonic/planetary ~100-160:1). Galaxea
+    # publishes NO Kt/R; ESTIMATE from the comparable TQ-RoboDrive ILM85 frameless
+    # torque-motor class (motor-side Kt 0.073, R 0.027) at gear ~160 -> joint-side
+    # Kt~11.7, R~0.027 => R/Kt^2 ~ 0.0002 (band 0.0002-0.002). Ohmic-negligible (high
+    # gear) — but gravity-comp still wins big via the gear-INDEPENDENT mechanical
+    # (lift-energy recovery) channel; see docs and scripts/galaxea_lift.py.
+    "galaxea_torso": MotorConstants(kt=11.7, r=0.027),
+    # Galaxea R1 6-DoF ARM joint, high-gear (planetary/harmonic). ESTIMATE from the
+    # TQ-RoboDrive ILM70 frameless class (motor-side Kt 0.054, R 0.055) at gear ~100 ->
+    # joint-side Kt~5.4, R~0.055 => R/Kt^2 ~ 0.0019. Used for the arms' (constant)
+    # holding power in the whole-robot energy accounting.
+    "galaxea_arm": MotorConstants(kt=5.4, r=0.055),
 }
 
 

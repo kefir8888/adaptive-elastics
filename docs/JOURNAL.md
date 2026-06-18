@@ -8,6 +8,64 @@ happened, what's open/broken, and the single next step.
 
 ---
 
+## 2026-06-19 — NEW direction: gravity-compensation springs on mobile manipulators (Galaxea lift + LimX dog) — BOTH positive
+- **Did:** Opened a Part-1 spinoff (user-directed): parallel springs on joints with CONSTANT-SIGN gravity load
+  (body up/down, loading/unloading) — cleaner/faster than locomotion. Got two external URDF robots running
+  locally in MuJoCo: fiveages-sim/robot_descriptions (Galaxea R1, Airbot MMK2, Agibot G1 wheeled; Unitree G1 /
+  Booster T1 / RobotEra xbot legged) + LimX W1 wheeled quadruped (WL_P311D). URDF→MuJoCo: resolve `package://`,
+  GLB→OBJ (trimesh), `discardvisual=false` + `fusestatic=false`. New modules
+  `src/pea/{urdf_loader,gravcomp,render_util}.py`; scripts `galaxea_lift.py`/`limx_roll.py`/`gravcomp_table.py`/
+  `setup_robots.sh`/`collect_report.sh`; configs `galaxea_lift.yaml`/`limx_roll.yaml`;
+  `energy.MOTORS += limx_knee, galaxea_torso, galaxea_arm`. Robots → gitignored `external/`. Reorganized
+  `outputs/`: NEW `outputs/gravity_compensation/` (videos+plots+table+README+raw/); everything locomotion → `outputs/_locomotion_archive/`.
+- **Decided:** gravity comp is the new active direction; **dog-running AND G1-running locomotion tracks are
+  SUSPENDED**. No regen; onboard computer 150 W (swept 0/50/150/300); full up-down per 2.5 s. Galaxea =
+  coordinated UPRIGHT lift (3 torso joints, IK, body stays level). Dog = constant knee preload during wheeled
+  roll; wheel transport billed analytically (Crr=0.015·m·g·d), NOT the slip-inflated velocity servo. W1 torso
+  mass 17 kg (no official spec; ~41 kg total).
+- **Result / numbers:** Galaxea R1 coordinated upright lift (0.33 m, 2.5 s×8, 20 s; upper body ~36 kg; peak
+  119 N·m): torso-motor electrical energy **956→48 J (−95%)**, whole-robot **−21% @150 W** (−94% servos-only).
+  LimX W1 roll (42.3 kg, 0.72 m/s, 18 s): knee-motor **961→19 J (−98%)**, all-servo **−72%**, whole-robot
+  **−26% @150 W**; CoT (all-servo) 0.280→0.077. Win large on BOTH despite opposite gearing (galaxea_torso
+  R/Kt²≈2e-4 high-gear; limx_knee ≈0.027 low-gear) — offloads the constant-sign load (lift work / stance-holding
+  ohmic), gear-independent. Table `outputs/gravity_compensation/05_energy_savings_table.md`.
+- **Open / broken:** motor Kt/R + masses are estimates (no vendor specs); dog τ-θ has a startup settling
+  transient; Galaxea lift single-amplitude, no carried payload yet; prescribed-motion (post-hoc≈in-loop here).
+  Bugs found+fixed: `mj_inverse` returns spurious base-joint torque (640 vs 15 N·m) → explicit M·q̈+qfrc_bias;
+  URDF IK singular at full extension → bent seed; `fusestatic` fuses the IK target body → false;
+  `discardvisual=true` drops skybox/floor textures → false; velocity-servo wheel slip → bill Crr·m·g·d analytically.
+- **Next:** add payload-scaling (carried mass → saving grows with load) + a regen on/off row to the combined
+  table, for both robots.
+
+---
+
+## 2026-06-18 — Forward-command curriculum: the dog RUNS (to ~2.2 m/s); flight stage over-corrected
+- **Did:** Diagnosed the standing collapse — the Go1 (and G1) joystick samples a SYMMETRIC, often-zeroed
+  velocity command (mean-zero vx), so the policy was never required to move. Built a forward-command override
+  (`command_forward` in config.py + `make_forward_sampler`/`bind_forward_command` in env.py: draw vx from a
+  one-sided forward band, never zero, force the initial command forward too). Added curriculum configs
+  C1/C2/C3 + matched spring configs; switched `scripts/run_dog_pipeline.sh` to the curriculum. Ran it detached
+  on a fresh H100 NVL (195.209.208.208), gated stage-by-stage, halted the box. Also this session: built the
+  G1 flight-enabling env subclass `G1JoystickRun` (`src/pea/g1_run_env.py`); assembled presentation materials
+  in `outputs/presentation/` (work-loops, the G1 "impossible spring" figure, energy/CoT tables, 8 videos);
+  reconciled docs; code cleanup (audit v2 + fixes C1–C6, dedup); checkpoint backup to Drive; iron-loss bound.
+- **Decided:** the forward-command curriculum (force vx forward + ramp the speed) is the fix for the standing
+  collapse; the C3 fast+flight stage was too aggressive and needs softening before flight can emerge.
+- **Result / numbers:** S0 walker reward 28.3 → **C1 ran 1.47 m/s** (cmd 1.5) → **C2 ran 2.16 m/s** (cmd 2.2) —
+  GENUINE forward running, solving the prior total standing collapse. **C3** ([2.5,3.2] m/s + flight tweaks)
+  **REGRESSED to standing at every speed** (0.00 m/s, true_flight False even at 1.5) → no flight → spring stages
+  not run. Run folders `2026-06-18_go1_run_{s0_walker,c1,c2,c3}_*` (pulled to `outputs/box_runs_curriculum/`).
+  G1 "impossible spring": G1 knee energy-optimal element is **anti-restoring** (k ≈ −13 to −19 N·m/rad, R²≈0.05,
+  offset-dominated → impossible as a passive spring); G1 hip k ≈ +66 (buildable, but backfires in-loop).
+- **Open / broken:** no flight phase yet (C3 over-corrected — the speed jump + flight reward made standing a
+  better optimum); spring-on-running test still pending; G1 running subclass built but untrained; Go1 rough
+  still ~40 % survival.
+- **Next:** gentler C3 — smaller speed step (e.g. [2.2,2.8]) + milder/STAGED flight tweaks (don't relax
+  feet_clearance so hard; add the flight reward only at a speed the policy already runs); retrain C3 from C2;
+  re-gate on flight.
+
+---
+
 ## 2026-06-17 — Dog-running pipeline ran on an H100; S2 STANDS (no running) → command-distribution fix needed
 - **Current state:** ran the full staged Go1 dog-running pipeline on a rented immers H100, fully detached
   (S0 walker → S1 trot → S2 run → flight gate). Rewards: S0 28.2, S1 26.4, S2 22.6; S0–S2 trained in ~40 min

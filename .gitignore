@@ -2,6 +2,14 @@
 outputs/
 logs/
 
+# external robot descriptions (cloned + GLB->OBJ converted by scripts/setup_robots.sh;
+# large meshes, never in git — regenerate with the setup script)
+external/
+# on-the-fly path-fixed URDFs the loader writes next to the originals
+*.mjfixed.urdf
+*.fb.urdf
+*.clean.urdf
+
 .venv/
 __pycache__/
 *.pyc

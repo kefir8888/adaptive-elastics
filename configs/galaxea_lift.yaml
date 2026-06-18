@@ -1,0 +1,15 @@
+# Galaxea R1 COORDINATED UPRIGHT LIFT gravity-compensation energy experiment
+# (scripts/galaxea_lift.py). The upper body translates vertically while staying LEVEL,
+# driven by the 3 torso pitch joints (IK-coordinated); a linear torsion spring per joint.
+urdf: humanoid/Galaxea/galaxea_r1_description/urdf/galaxea_r1.urdf
+z_top: 0.95            # m, top-link height at the raised pose (level)
+z_bot: 0.62            # m, lowered pose (~0.33 m vertical travel)
+cycle_s: 2.5           # one full up-down per 2.5 s
+total_s: 20.0          # ~8 cycles
+dwell_frac: 0.15       # brief dwell at top/bottom each cycle
+dt: 0.004
+motor: galaxea_torso   # torso joints (joint-side R/Kt^2 ~ 2e-4)
+arm_motor: galaxea_arm # arm holding power for whole-robot accounting
+regen: false
+compute_w: 150.0       # onboard computer power (headline); swept below too
+compute_sweep: [0.0, 50.0, 150.0, 300.0]

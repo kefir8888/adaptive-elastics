@@ -19,7 +19,7 @@ cost of transport, not mechanical work. Full design in `CLAUDE.md`.
 On the low-gear Go1, ohmic loss dominates, so offloading the knee's support torque pays. On the high-gear G1
 ohmic is negligible and the always-on spring just fights the gait. **The gear ratio decides the sign.**
 
-## Current state (2026-06-16)
+## Current state (2026-06-18)
 
 **Done + validated — Go1 quadruped load-carrying WALKING program (the positive track):**
 - **Constant parallel knee preload cuts cost of transport −14 to −27 %** on flat ground in **3 of 4
@@ -34,6 +34,10 @@ ohmic is negligible and the always-on spring just fights the gait. **The gear ra
   offload its own measured knee torque, with **no load sensor and no payload observation**. Validated; extends
   the win to **load-carrying (0–6 kg payloads)**.
 - **Walking videos** rendered (flat + rough, no-load + 5 kg) in `outputs/videos/`.
+- **Presentation materials** assembled in `outputs/presentation/` (`INDEX.md`): work-loop (torque-vs-angle)
+  plots for G1 hip/knee and Go1 knee, the **G1 "impossible spring" figure** (the knee's energy-optimal element
+  is anti-restoring, k ≈ −13 to −19 N·m/rad → impossible as a passive spring, which is *why* only a constant
+  preload is buildable), energy + cost-of-transport tables (units labelled), and the videos.
 
 **Caveats / negative / inconclusive:**
 - **Rough terrain:** the energy win survives on mild (2.5 cm) terrain (CoT −10 to −19 %) but **stability is
@@ -43,14 +47,22 @@ ohmic is negligible and the always-on spring just fights the gait. **The gear ra
   ~5–10 kg max** — the plain sim enforces peak but not continuous/thermal torque or structural/balance limits.
   High-load (15–30 kg) numbers are **sim-only**; 30 kg is realistic only for a B2-class robot. The physically
   meaningful Go1 study is **0–6 (10) kg**.
-- **G1 running — two failed attempts:** a [0,3] m/s from-scratch collapse to a 0.85 m/s never-fall walk, then
-  a curriculum + reward-redesign that destabilized it. The Playground G1 walk env structurally resists a flight
-  phase (gait clock + hard-capped air-time). G1 running is a **long-shot** (`docs/g1_running_design.md`).
+- **G1 running:** the Playground G1 walk env structurally forbids a flight phase (gait clock + hard-capped
+  air-time, both hardcoded). A flight-enabling env subclass **`G1JoystickRun`** (`src/pea/g1_run_env.py`) is now
+  **built** (un-caps air-time 0.5→0.8 s, raises the gait-clock frequency to 1.6–2.2 Hz, down-weights the
+  foot-planted reward 1.0→0.3, adds velocity-gated flight/double-stance terms) but **untrained**. G1 running
+  remains the harder track (`docs/g1_running_design.md`).
 
-**Active direction:** **knee spring on a RUNNING dog** (`docs/dog_running_design.md`). The Go1 env is far more
-flight-permissive than the G1 (no gait clock, soft termination), and a quadruped runs with a real flight phase
-so the calf can recover braking energy at impact — likely favouring a one-sided *stiffness* spring over the
-walking constant-preload. Designed; gated on whether a true all-feet-off phase actually emerges.
+**Active direction — knee spring on a RUNNING dog (`docs/dog_running_design.md`): the dog now runs.**
+A **forward-command curriculum** fixed the standing collapse. Root cause: the Go1 (and G1) joystick samples a
+**symmetric, often-zeroed** velocity command (mean-zero forward speed), so the policy was never required to
+move and learned to stand — *not* a too-high target. The fix is a `command_forward` override (`src/pea/env.py`)
+that draws the commanded speed from a one-sided forward band and never zeroes it, plus a speed-ramp curriculum
+(C1 [1.2–1.8] → C2 [1.8–2.5] → C3 [2.5–3.2]). Result on an H100 (2026-06-18): genuine forward running at
+**1.47 m/s (C1) then 2.16 m/s (C2)** — but the fast+flight stage **C3 over-corrected and regressed back to
+standing**, so there is **no all-feet-off flight phase yet** and the running-spring test is still pending.
+**Next: a gentler C3** (smaller speed step, milder/staged flight tweaks), then re-gate on flight before the
+spring stages. Pipeline: `scripts/run_dog_pipeline.sh`.
 
 **Infrastructure:** GPU training runs on **immers.cloud, paid in rubles** (decided 2026-06-16). Crypto-funded
 Western providers (Vast / RunPod / Spheron) are **dropped** — they are KYC/sanctions-blocked from Russia and not
