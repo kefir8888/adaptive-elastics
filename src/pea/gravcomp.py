@@ -250,17 +250,46 @@ def multi_joint_torque(model, data, q, dt):
     return tau, grav, qd
 
 
+def fit_spring_per_joint(theta, tau_req, omega, motor: E.MotorConstants, dt: float,
+                         regen: bool = False, k_max: float = 600.0,
+                         kinds=("linear", "constant")):
+    """Energy-optimal parallel spring of the BEST KIND for ONE joint's
+    (theta, tau_req, omega) series. Tries each kind in `kinds` and returns
+    (SpringSpec, energy_with, energy_without) for the params with the lowest
+    no-regen electrical energy.
+
+    Element kind follows the load SHAPE (see docs/gravity_compensation.md):
+    - "linear" tau=-k(theta-theta0) fits a joint whose gravity load slopes with its
+      OWN angle (e.g. the Galaxea knee, corr ~-0.9).
+    - "constant" preload tau=tau0 fits a joint whose gravity load is ~constant in its
+      own angle (gravity span ~0). A linear spring is mis-specified there: it cannot be
+      a flat line without pushing theta0 far outside the visited range, so the grid
+      clamps theta0 to the edge and under-fits (the torso_joint3 artifact)."""
+    base = lift_energy(tau_req, omega, motor, dt, regen).total
+    best = (np.inf, SpringSpec(kind="linear"))   # k=0 linear == no spring (safe fallback)
+
+    def consider(spec):
+        nonlocal best
+        e = lift_energy(tau_req - tau_spring(theta, spec), omega, motor, dt, regen).total
+        if e < best[0]:
+            best = (e, spec)
+
+    if "linear" in kinds:
+        th_lo, th_hi = theta.min() - 0.6, theta.max() + 0.6
+        for k in np.linspace(0, k_max, 61):
+            for t0 in np.linspace(th_lo, th_hi, 49):
+                consider(SpringSpec(kind="linear", k=float(k), theta0=float(t0)))
+    if "constant" in kinds:
+        tau0_max = 1.5 * float(np.abs(tau_req).max()) + 1e-9
+        for tau0 in np.linspace(-tau0_max, tau0_max, 161):
+            consider(SpringSpec(kind="constant", tau0=float(tau0)))
+    return best[1], best[0], base
+
+
 def fit_linear_spring_per_joint(theta, tau_req, omega, motor: E.MotorConstants, dt: float,
                                 regen: bool = False, k_max: float = 600.0):
-    """Energy-optimal linear torsion spring tau=-k(theta-theta0) for ONE joint's
-    (theta, tau_req, omega) series. Returns (SpringSpec, energy_with, energy_without)."""
-    base = lift_energy(tau_req, omega, motor, dt, regen).total
-    best = (np.inf, SpringSpec(kind="linear"))
-    th_lo, th_hi = theta.min() - 0.6, theta.max() + 0.6
-    for k in np.linspace(0, k_max, 61):
-        for t0 in np.linspace(th_lo, th_hi, 49):
-            spec = SpringSpec(kind="linear", k=float(k), theta0=float(t0))
-            e = lift_energy(tau_req - tau_spring(theta, spec), omega, motor, dt, regen).total
-            if e < best[0]:
-                best = (e, spec)
-    return best[1], best[0], base
+    """Energy-optimal LINEAR torsion spring tau=-k(theta-theta0) for ONE joint.
+    Returns (SpringSpec, energy_with, energy_without). Linear-only; for automatic
+    linear-vs-constant kind selection use fit_spring_per_joint."""
+    return fit_spring_per_joint(theta, tau_req, omega, motor, dt, regen, k_max,
+                                kinds=("linear",))

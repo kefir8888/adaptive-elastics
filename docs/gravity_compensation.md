@@ -36,7 +36,7 @@ The bare mechanism (offload a gravity load, motor works less) is simple. What ma
 
 | robot / motion | spring | targeted-motor avg power | targeted saving | whole-robot |
 |---|---|---|---|---|
-| Galaxea R1 — coordinated upright lift | linear on all 3 torso joints | 41.5 → 2.1 W | **−95%** | −20.5% |
+| Galaxea R1 — coordinated upright lift | linear ×2 + constant preload ×1 (auto-selected) | 41.5 → 1.5 W | **−96%** | −20.9% |
 | Galaxea R1 — lift, spring on middle joint only | one linear spring (torso_joint2) | 41.5 → 6.1 W | **−85%** | −19% |
 | Galaxea R1 — knee alone (torso_joint2) | one linear spring | 36.3 → 0.9 W | **−98%** | — |
 | Galaxea R1 — forward lean about bottom joint | one linear spring (torso_joint1) | — | **−98%** (that joint) | — |
@@ -61,14 +61,14 @@ The bare mechanism (offload a gravity load, motor works less) is simple. What ma
    - Where gravity *varies with the joint's own angle* — torso_joint1/2 (gravity span 4.9 / 29 N·m,
      corr −0.93 / −0.91) — a **linear** torsion spring `τ=−k(θ−θ₀)` fits cleanly (−98%).
    - Where gravity is *constant in the joint's angle* — torso_joint3 (gravity span **0.0 N·m**,
-     corr +0.63, all dynamic) — a linear spring is **mis-specified**: the energy-optimal fit pushes
-     θ₀ to the grid boundary (−2.15 = `θ.min−0.6`) trying to mimic a flat constant, leaving a spurious
-     tilt (k=10) and under-fitting at **−65%** (widening the θ₀ grid → k=5, flatter, **−75%**). The
-     correct element is a **constant preload** (`springs.py` kind `"constant"`, `tau0`). This barely
-     dents the headline (joint3 is 8% of load) and *under*-claims it.
+     corr +0.63, all dynamic) — a linear spring is **mis-specified**: the energy-optimal *linear* fit
+     pushed θ₀ to the grid boundary (−2.15 = `θ.min−0.6`) trying to mimic a flat constant, leaving a
+     spurious tilt (k=10) and under-fitting at −65%. The correct element is a **constant preload**
+     (`springs.py` kind `"constant"`, `tau0`). `fit_spring_per_joint` now selects it automatically
+     (τ₀=−11 N·m) → **−84%** on joint3, lifting the 3-spring headline from −95% to **−96.5%**.
    - **General rule:** choose spring kind per joint by load shape — linear where gravity slopes with
-     the joint's own angle, constant preload where it doesn't. (Deferred: making
-     `fit_linear_spring_per_joint` pick kind per joint — see "Open".)
+     the joint's own angle, constant preload where it doesn't. `fit_spring_per_joint` does this: it
+     tries both kinds per joint and keeps the lower-energy one.
 4. **Adaptive preload works on-the-fly.** The W1 4-phase run drives an EMA + rate-limited integral
    law (`α=exp(−dt/window)`; `ema←α·ema+(1−α)·τ_motor`; `τ₀←clip(τ₀+clip(kp·(ema−target),±rate)·dt,0,τ₀_max)`)
    that ramps the passive preload to track the stance torque as the body squats (4→26 N·m), with **no
@@ -91,7 +91,6 @@ The bare mechanism (offload a gravity load, motor works less) is simple. What ma
 ## Open
 - Motor constants + Galaxea mass are estimates; an in-the-loop (retrained-motion) check is not
   applicable to a prescribed task but a hardware Kt/R would tighten the watts.
-- `fit_linear_spring_per_joint` searches only linear springs; per-joint kind selection (linear vs
-  constant preload, by load shape) would make the joint3-type panel honest and nudge the headline
-  slightly better. User chose to defer (2026-06-19).
 - The dog-running and G1-running locomotion tracks remain SUSPENDED; Part 2 (explosive moves) untouched.
+
+_Done (2026-06-19): per-joint spring-kind selection (`fit_spring_per_joint`, linear vs constant preload)._

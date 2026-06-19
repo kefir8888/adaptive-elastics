@@ -8,6 +8,21 @@ happened, what's open/broken, and the single next step.
 
 ---
 
+## 2026-06-19 (cont. 3) — per-joint spring-kind selection implemented (the deferred joint-fit fix)
+- **Did:** Added `gravcomp.fit_spring_per_joint` (tries LINEAR + CONSTANT preload per joint, keeps the
+  lower-energy one); `fit_linear_spring_per_joint` is now a thin linear-only wrapper. Wired `galaxea_lift.py`
+  to it with a kind-aware table/plot legend (`_spring_str`). Regenerated the 02 plot (joint3 panel now a
+  sensible flat preload line, no longer the "sus" tilted fit) and the 05 energy table; updated the program
+  doc + CLAUDE.md numbers.
+- **Result:** torso_joint3 now picks a CONSTANT preload (τ₀=−11 N·m) → **−84%** (was −65% linear); the
+  3-spring lift headline rises **−95% → −96.5%** (whole-robot −20.9% @150 W). joint1/joint2 stay linear
+  (−98% each). Middle-joint-only (06) and LimX (linear/constant already) unchanged.
+- **Open:** the lift VIDEO (01) overlay still shows the old −95% (meter slightly stale; joint3 spring not
+  shown in-frame) — re-render if a refreshed clip is wanted.
+- **Next:** user's call — new chapter (humanoid training / Part 2 explosive moves) likely in a fresh session.
+
+---
+
 ## 2026-06-19 (cont. 2) — gravity-comp direction WRAPPED (positive); bundle finalized; joint-fit finding
 - **Did:** Closed the gravity-compensation direction. Wrote the versioned program doc
   **`docs/gravity_compensation.md`** (the durable home — the bundle REPORT.md is gitignored).

@@ -29,6 +29,15 @@ TORSO_JOINTS = ["torso_joint1", "torso_joint2", "torso_joint3"]
 ARM_JOINTS = [f"{s}_joint{i}" for s in ("left", "right") for i in range(1, 7)]
 
 
+def _spring_str(spec):
+    """Short kind-aware descriptor for the table/plot legend."""
+    if spec is None:
+        return "(none)"
+    if spec.kind == "constant":
+        return f"const t0={spec.tau0:+.0f}"
+    return f"linear k={spec.k:.0f}"
+
+
 @dataclasses.dataclass
 class Cfg:
     urdf: str = "humanoid/Galaxea/galaxea_r1_description/urdf/galaxea_r1.urdf"
@@ -121,7 +130,7 @@ def main():
     for k in range(3):
         e_base = gravcomp.lift_energy(tau[:, k], qd[:, k], motor, cfg.dt, cfg.regen).total
         if TORSO_JOINTS[k] in cfg.spring_joints:
-            spec, e_with, e_base = gravcomp.fit_linear_spring_per_joint(
+            spec, e_with, e_base = gravcomp.fit_spring_per_joint(
                 q[:, k], tau[:, k], qd[:, k], motor, cfg.dt, cfg.regen)
         else:
             spec, e_with = None, e_base          # no spring on this joint
@@ -133,10 +142,9 @@ def main():
     print(f"vertical lift {cfg.z_top}->{cfg.z_bot} m (level), cycle {cfg.cycle_s}s, {T:.1f}s total, "
           f"upper body {up_mass:.1f} kg; spring on: {', '.join(cfg.spring_joints)}")
     print(f"peak |tau| per joint: {np.round(np.abs(tau).max(0),0)} N*m\n")
-    print(f"  {'torso joint':14s} {'spring k':>9} {'avg P base(W)':>14} {'avg P spring(W)':>16} {'red':>7}")
+    print(f"  {'torso joint':14s} {'spring':>14} {'avg P base(W)':>14} {'avg P spring(W)':>16} {'red':>7}")
     for k, jn in enumerate(TORSO_JOINTS):
-        kstr = f"{springs[k].k:9.0f}" if springs[k] else f"{'(none)':>9}"
-        print(f"  {jn:14s} {kstr} {e_base_j[k]/T:14.1f} {e_spr_j[k]/T:16.1f} "
+        print(f"  {jn:14s} {_spring_str(springs[k]):>14} {e_base_j[k]/T:14.1f} {e_spr_j[k]/T:16.1f} "
               f"{100*(e_spr_j[k]-e_base_j[k])/max(e_base_j[k],1e-9):+6.0f}%")
     print(f"  {'TARGET (3 torso)':14s} {'':9} {target_base/T:14.1f} {target_spring/T:16.1f} "
           f"{100*(target_spring-target_base)/target_base:+6.1f}%")
@@ -151,7 +159,7 @@ def main():
         ax.plot(q[order, k], grav[order, k], "-", lw=1, color="gray", alpha=0.7, label="gravity")
         if springs[k] is not None:
             ax.plot(q[order, k], tau_spring(q[order, k], springs[k]), "-", lw=2, color="tab:red",
-                    label=f"fitted spring (k={springs[k].k:.0f})")
+                    label=f"fitted spring ({_spring_str(springs[k])})")
         else:
             ax.plot([], [], " ", label="no spring")
         ax.set_title(jn); ax.set_xlabel("joint angle (rad)"); ax.grid(alpha=0.3); ax.legend(fontsize=7)

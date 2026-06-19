@@ -47,14 +47,15 @@ Mechanism / why this should work:
   A Part-1 spinoff testing parallel springs on joints with CONSTANT-SIGN gravity load
   (body up/down, loading/unloading) on two mobile-manipulator robots loaded from EXTERNAL URDFs (Galaxea R1
   wheeled humanoid; LimX W1 wheeled quadruped). The load never reverses, so a PERMANENT clutchless parallel
-  spring is unambiguously good — and the win is LARGE on BOTH high-gear (Galaxea torso lift, −95% torso-motor /
+  spring is unambiguously good — and the win is LARGE on BOTH high-gear (Galaxea torso lift, −96% torso-motor /
   −21% whole-robot @150 W computer) and low-gear (LimX knee during wheeled roll, −98% / −26%) platforms,
   because it offloads the constant-sign load (lift work / stance-holding ohmic), which is gear-INDEPENDENT — the
   opposite of the walking result where gearing was the crux. Two findings worth carrying forward: (a) **one
   well-placed spring ≈ the whole win** — the Galaxea knee (torso_joint2) is 87 % of the lift load, a single spring
   there gives −98 %; (b) **element kind follows load SHAPE** (re-confirms the Go1-knee rule): a linear spring fits
   joints whose gravity slopes with their own angle, but is mis-specified on a constant-load joint (torso_joint3,
-  gravity span 0 → linear fit pushes θ₀ to the grid edge and under-fits) where a CONSTANT preload is correct.
+  gravity span 0 → linear fit pushes θ₀ to the grid edge and under-fits) where a CONSTANT preload is correct
+  — now auto-selected per joint by `gravcomp.fit_spring_per_joint` (joint3 −65 % → −84 %).
   Reporting bundle `outputs/gravity_compensation/` (videos, plots, combined table, README — gitignored);
   see `docs/gravity_compensation.md` + the 2026-06-19 JOURNAL entries.
 
