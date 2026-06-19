@@ -51,16 +51,19 @@ if [ -f "$RAW/galaxea_lean/lean.mp4" ]; then
     "$DST/11_galaxea_lean_bottom_joint_spring.gif"
 fi
 
-# presentation-quality colored turntables + stills (scripts/pretty_render.py)
+# presentation-quality colored turntables + stills (scripts/pretty_render.py).
+# These are presentation-only renders (no measurement) -- NOT experiment results -- so they
+# go into _superseded/ rather than the top-level deliverable bundle (which holds only results).
 if [ -d "$RAW/pretty" ]; then
+  mkdir -p "$DST/_superseded"
   for r in "galaxea:13" "dog:14"; do
     name=${r%%:*}; num=${r##*:}
     [ -f "$RAW/pretty/${name}_turntable.mp4" ] || continue
-    cp "$RAW/pretty/${name}_pretty.png"      "$DST/${num}_${name}_rendered.png"
-    cp "$RAW/pretty/${name}_turntable.mp4"   "$DST/${num}_${name}_turntable.mp4"
+    cp "$RAW/pretty/${name}_pretty.png"      "$DST/_superseded/${num}_${name}_rendered.png"
+    cp "$RAW/pretty/${name}_turntable.mp4"   "$DST/_superseded/${num}_${name}_turntable.mp4"
     ffmpeg -y -loglevel error -i "$RAW/pretty/${name}_turntable.mp4" \
       -filter_complex "fps=10,scale=400:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=64[p];[s1][p]paletteuse=dither=none" \
-      "$DST/${num}_${name}_turntable.gif"
+      "$DST/_superseded/${num}_${name}_turntable.gif"
   done
 fi
 
