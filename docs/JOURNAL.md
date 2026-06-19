@@ -8,6 +8,36 @@ happened, what's open/broken, and the single next step.
 
 ---
 
+## 2026-06-19 (cont. 2) — gravity-comp direction WRAPPED (positive); bundle finalized; joint-fit finding
+- **Did:** Closed the gravity-compensation direction. Wrote the versioned program doc
+  **`docs/gravity_compensation.md`** (the durable home — the bundle REPORT.md is gitignored).
+  Finalized the reporting bundle: moved all non-experiment / pre-mesh-fix renders into
+  `_superseded/` (top level is experiment results only), re-rendered every live GIF to higher
+  resolution (720 px / 600 px for the long phases clip; 256-color bayer + `diff_mode=rectangle`)
+  and — after the first pass was choppy — back up to a smooth ~15 fps (20 fps turntable), trading
+  size for watchability (~6–18 MB); `collect_report.sh` updated to reproduce both. Added
+  `scripts/galaxea_knee_plot.py` → a single-panel **single-knee-spring** plot
+  (`06b_galaxea_knee_single_spring.png`).
+- **Decided / found:** (1) **The approach is validated** — adaptive parallel elastics cut
+  electrical energy a lot on BOTH a high-gear humanoid (Galaxea) and a low-gear wheeled quadruped
+  (W1), i.e. **gear-independently**, because they offload the constant-sign load (the inversion of
+  the walking result where gearing set the sign). (2) **One well-placed spring ≈ the whole win**:
+  knee alone −98%, mid-joint-only lift −85% vs −95% for 3 springs (the knee is **87%** of the load).
+  (3) **Element kind is set by load SHAPE** (re-confirms the Go1-knee rule): torso_joint3's gravity
+  is *constant in its own angle* (span 0.0, corr +0.63), so the linear fit pushed θ₀ to the grid
+  boundary (−2.15) and under-fit (−65%; −75% with a wider grid) — a constant preload is the right
+  element there. Left the per-joint kind-selection fix UNAPPLIED per user.
+- **Result numbers:** Galaxea lift −95% (3 springs) / −85% (1 mid) / −98% (knee alone), whole-robot
+  −20.5% @150 W; lean −98%; 5 free reaches −97…−99%. W1 roll −98% targeted / −26% whole; 4-phase
+  adaptive preload tracks 4→26 N·m, knee power −93%.
+- **Open / broken:** motor Kt/R + Galaxea mass are estimates (% robust, watts a band); `fit_linear_spring_per_joint`
+  searches only linear springs (joint3-type under-claimed); galaxea_knee_plot not wired into `collect_report.sh`;
+  the `_superseded/` 07/13/free-reach clips still show the pre-fix render bug (need source re-render, not just re-gif).
+- **Next:** user's call — either start Part 2 (explosive moves) or resume the suspended dog-/G1-running tracks;
+  if continuing gravity-comp, add per-joint spring-kind selection and a hardware Kt/R.
+
+---
+
 ## 2026-06-19 (cont.) — gravity-comp experiment suite + presentation renders + two model-loading fixes
 - **Did:** Galaxea — coordinated upright lift (3 springs), middle-joint-only lift (1 spring), forward LEAN
   about the BOTTOM joint (1 linear spring), forward-reach knee torque-angle, and **5 "free" reaching motions**
