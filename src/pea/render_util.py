@@ -56,6 +56,30 @@ def set_quality(model, width: int, height: int, offsamples: int = 8,
     model.vis.headlight.specular = [0.2, 0.2, 0.2]
 
 
+def apply_palette(model, robot):
+    """Assign a per-part color palette by body name (URDF .obj meshes carry no materials
+    into MuJoCo -> everything is flat grey). robot: 'galaxea' or 'dog'."""
+    import mujoco
+    for g in range(model.ngeom):
+        if mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, g) == "floor":
+            continue
+        b = (mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, model.geom_bodyid[g]) or "").lower()
+        if robot == "galaxea":
+            if "wheel" in b or "steer" in b:        c = [0.05, 0.05, 0.06, 1]
+            elif "base_link" in b:                  c = [0.10, 0.10, 0.12, 1]
+            elif "torso" in b:                      c = [0.83, 0.84, 0.88, 1]   # silver torso
+            elif "gripper" in b or "finger" in b:   c = [0.16, 0.16, 0.18, 1]
+            elif "head" in b or "zed" in b:         c = [0.04, 0.04, 0.05, 1]
+            elif "link" in b or "base" in b:        c = [0.11, 0.11, 0.13, 1]   # black arms
+            else:                                   c = [0.30, 0.30, 0.32, 1]
+        else:  # dog
+            if "wheel" in b:                        c = [0.05, 0.05, 0.06, 1]
+            elif "base" in b or "imu" in b:         c = [0.12, 0.12, 0.14, 1]
+            elif any(k in b for k in ("calf", "thigh", "hip")): c = [0.85, 0.40, 0.05, 1]  # orange legs
+            else:                                   c = [0.20, 0.20, 0.22, 1]
+        model.geom_rgba[g] = c
+
+
 def free_camera(distance: float, elevation: float, azimuth: float, lookat=(0, 0, 0)):
     cam = mujoco.MjvCamera()
     cam.type = mujoco.mjtCamera.mjCAMERA_FREE

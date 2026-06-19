@@ -42,6 +42,9 @@ class Cfg:
     motor: str = "galaxea_torso"
     arm_motor: str = "galaxea_arm"
     regen: bool = False
+    spring_joints: tuple = ("torso_joint1", "torso_joint2", "torso_joint3")  # which joints get a spring
+    label: str = "Galaxea R1 (coordinated upright lift)"   # robot/scenario label for the table
+    tag: str = ""                                          # output-filename suffix for this scenario
     compute_w: float = 150.0
     compute_sweep: tuple = (0.0, 50.0, 150.0, 300.0)
 
@@ -113,59 +116,61 @@ def main():
     tau, grav, qd = gravcomp.multi_joint_torque(m, d, q, cfg.dt)  # (N x 3) each
     N = q.shape[0]; T = N * cfg.dt
 
-    # per-joint spring fit + energy
+    # per-joint spring fit + energy (a joint NOT in spring_joints keeps its full motor load)
     springs, e_base_j, e_spr_j = [], [], []
     for k in range(3):
-        spec, e_with, e_without = gravcomp.fit_linear_spring_per_joint(
-            q[:, k], tau[:, k], qd[:, k], motor, cfg.dt, cfg.regen)
-        springs.append(spec); e_base_j.append(e_without); e_spr_j.append(e_with)
+        e_base = gravcomp.lift_energy(tau[:, k], qd[:, k], motor, cfg.dt, cfg.regen).total
+        if TORSO_JOINTS[k] in cfg.spring_joints:
+            spec, e_with, e_base = gravcomp.fit_linear_spring_per_joint(
+                q[:, k], tau[:, k], qd[:, k], motor, cfg.dt, cfg.regen)
+        else:
+            spec, e_with = None, e_base          # no spring on this joint
+        springs.append(spec); e_base_j.append(e_base); e_spr_j.append(e_with)
     target_base = sum(e_base_j); target_spring = sum(e_spr_j)
 
     arms_P = arm_holding_power(cfg); arms_E = arms_P * T
-    print(f"=== Galaxea R1 COORDINATED UPRIGHT LIFT (motor {cfg.motor} R/Kt^2={motor.r/motor.kt**2:.2e}, "
-          f"regen={cfg.regen}) ===")
+    print(f"=== {cfg.label} (motor {cfg.motor} R/Kt^2={motor.r/motor.kt**2:.2e}, regen={cfg.regen}) ===")
     print(f"vertical lift {cfg.z_top}->{cfg.z_bot} m (level), cycle {cfg.cycle_s}s, {T:.1f}s total, "
-          f"upper body {up_mass:.1f} kg")
+          f"upper body {up_mass:.1f} kg; spring on: {', '.join(cfg.spring_joints)}")
     print(f"peak |tau| per joint: {np.round(np.abs(tau).max(0),0)} N*m\n")
-    print(f"  {'torso joint':14s} {'spring k':>9} {'theta0':>8} {'E base(J)':>10} {'E spring(J)':>11} {'red':>7}")
+    print(f"  {'torso joint':14s} {'spring k':>9} {'avg P base(W)':>14} {'avg P spring(W)':>16} {'red':>7}")
     for k, jn in enumerate(TORSO_JOINTS):
-        print(f"  {jn:14s} {springs[k].k:9.0f} {springs[k].theta0:8.2f} {e_base_j[k]:10.1f} "
-              f"{e_spr_j[k]:11.1f} {100*(e_spr_j[k]-e_base_j[k])/max(e_base_j[k],1e-9):+6.0f}%")
-    print(f"  {'TARGET (3 torso)':14s} {'':9} {'':8} {target_base:10.1f} {target_spring:11.1f} "
+        kstr = f"{springs[k].k:9.0f}" if springs[k] else f"{'(none)':>9}"
+        print(f"  {jn:14s} {kstr} {e_base_j[k]/T:14.1f} {e_spr_j[k]/T:16.1f} "
+              f"{100*(e_spr_j[k]-e_base_j[k])/max(e_base_j[k],1e-9):+6.0f}%")
+    print(f"  {'TARGET (3 torso)':14s} {'':9} {target_base/T:14.1f} {target_spring/T:16.1f} "
           f"{100*(target_spring-target_base)/target_base:+6.1f}%")
-    print(f"\n  arms holding power {arms_P:.1f} W -> {arms_E:.0f} J over {T:.0f}s")
-    print(f"\n  whole-robot savings (target saving = {target_base-target_spring:.0f} J):")
-    print(f"  {'compute (W)':>12} {'overall base(J)':>16} {'overall spring(J)':>18} {'overall red':>12}")
-    for w in cfg.compute_sweep:
-        ob = target_base + arms_E + w * T; os_ = target_spring + arms_E + w * T
-        tag = "  <-- headline" if abs(w - cfg.compute_w) < 1e-6 else ""
-        print(f"  {w:12.0f} {ob:16.0f} {os_:18.0f} {100*(os_-ob)/ob:+11.1f}%{tag}")
+    ob = target_base + arms_E + cfg.compute_w * T; os_ = target_spring + arms_E + cfg.compute_w * T
+    print(f"\n  arms {arms_P:.1f} W; whole-robot @{cfg.compute_w:.0f} W computer: {100*(os_-ob)/ob:+.1f}%")
 
-    # ---- plot: tau vs angle + fitted spring, per joint ----
+    # ---- plot: tau vs angle (+ fitted spring where present), per joint ----
     fig, axes = plt.subplots(1, 3, figsize=(13, 4))
     for k, (ax, jn) in enumerate(zip(axes, TORSO_JOINTS)):
         order = np.argsort(q[:, k])
         ax.plot(q[order, k], tau[order, k], ".", ms=2, color="tab:blue", label="required torque")
         ax.plot(q[order, k], grav[order, k], "-", lw=1, color="gray", alpha=0.7, label="gravity")
-        ax.plot(q[order, k], tau_spring(q[order, k], springs[k]), "-", lw=2, color="tab:red",
-                label=f"fitted spring (k={springs[k].k:.0f})")
-        ax.set_title(jn); ax.set_xlabel("joint angle (rad)"); ax.grid(alpha=0.3)
+        if springs[k] is not None:
+            ax.plot(q[order, k], tau_spring(q[order, k], springs[k]), "-", lw=2, color="tab:red",
+                    label=f"fitted spring (k={springs[k].k:.0f})")
+        else:
+            ax.plot([], [], " ", label="no spring")
+        ax.set_title(jn); ax.set_xlabel("joint angle (rad)"); ax.grid(alpha=0.3); ax.legend(fontsize=7)
         if k == 0:
-            ax.set_ylabel("torque (N*m)"); ax.legend(fontsize=7)
-    fig.suptitle(f"Galaxea R1 coordinated upright lift: torque vs angle + fitted parallel spring "
+            ax.set_ylabel("torque (N*m)")
+    fig.suptitle(f"{cfg.label}: torque vs angle + fitted parallel spring "
                  f"(target {100*(target_spring-target_base)/target_base:+.0f}%)")
     fig.tight_layout()
     pathlib.Path("outputs/gravity_compensation/raw/galaxea").mkdir(parents=True, exist_ok=True)
-    fig.savefig("outputs/gravity_compensation/raw/galaxea/galaxea_taus.png", dpi=130); plt.close(fig)
-    print("\nWROTE outputs/gravity_compensation/raw/galaxea/galaxea_taus.png")
+    fig.savefig(f"outputs/gravity_compensation/raw/galaxea/galaxea_taus{cfg.tag}.png", dpi=130); plt.close(fig)
+    print(f"\nWROTE outputs/gravity_compensation/raw/galaxea/galaxea_taus{cfg.tag}.png")
 
-    results = dict(robot="Galaxea R1 (coordinated upright lift)", target_label="3 torso joints",
+    results = dict(robot=cfg.label, target_label="3 torso joints",
                    duration_s=T, target_base_J=target_base, target_spring_J=target_spring,
                    other_servo_J=arms_E, other_servo_W=arms_P,
                    all_servo_base_J=target_base + arms_E, all_servo_spring_J=target_spring + arms_E,
                    regen=cfg.regen)
-    pathlib.Path("outputs/gravity_compensation/raw/galaxea/galaxea_results.json").write_text(json.dumps(results, indent=2))
-    print("WROTE outputs/gravity_compensation/raw/galaxea/galaxea_results.json")
+    pathlib.Path(f"outputs/gravity_compensation/raw/galaxea/galaxea_results{cfg.tag}.json").write_text(json.dumps(results, indent=2))
+    print(f"WROTE outputs/gravity_compensation/raw/galaxea/galaxea_results{cfg.tag}.json")
 
     if args.video:
         _render(cfg, z, q, tau, qd, springs, motor, target_base, target_spring, args.video)
@@ -174,6 +179,7 @@ def main():
 def _render(cfg, z, q, tau, qd, springs, motor, e_base, e_spring, out):
     W, H = 1280, 720
     m = build_reduced(cfg, with_assets=True); d = mujoco.MjData(m)
+    render_util.apply_palette(m, "galaxea")
     # place the floor at the robot's base of support
     fid = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, "floor")
     qa = np.array([m.jnt_qposadr[j] for j in range(m.njnt)])
@@ -182,8 +188,10 @@ def _render(cfg, z, q, tau, qd, springs, motor, e_base, e_spring, out):
         m.geom_pos[fid, 2] = float(d.geom_xpos[:, 2].min()) - 0.02
     render_util.set_quality(m, W, H)
     # per-step power for the live meter (baseline vs spring), summed over the 3 joints
+    def _ts(k):  # spring torque on joint k (0 where no spring)
+        return tau_spring(q[:, k], springs[k]) if springs[k] is not None else 0.0
     pb = sum(E.electrical_power(tau[:, k], qd[:, k], motor.kt, motor.r, regen=cfg.regen) for k in range(3))
-    ps = sum(E.electrical_power(tau[:, k] - tau_spring(q[:, k], springs[k]), qd[:, k],
+    ps = sum(E.electrical_power(tau[:, k] - _ts(k), qd[:, k],
              motor.kt, motor.r, regen=cfg.regen) for k in range(3))
     eb = np.cumsum(pb) * cfg.dt; es = np.cumsum(ps) * cfg.dt
     pct = 100 * (e_spring - e_base) / e_base

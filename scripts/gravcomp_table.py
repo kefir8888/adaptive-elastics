@@ -10,6 +10,7 @@ import pathlib
 
 COMPUTE_SWEEP = [0, 50, 150, 300]
 FILES = ["outputs/gravity_compensation/raw/galaxea/galaxea_results.json",
+         "outputs/gravity_compensation/raw/galaxea/galaxea_results_kneeonly.json",
          "outputs/gravity_compensation/raw/limx/limx_results.json"]
 
 
@@ -29,26 +30,17 @@ def main():
     L.append("Spring-target-motor saving, and whole-robot saving (all servos + a fixed "
              "onboard computer). Motor constants are sourced estimates; the win is "
              "largely gear-independent.\n")
-    L.append("| robot / motion | target motors | target energy base→spring (J) | "
+    L.append("| robot / motion | target motors | avg power of targeted joints (W), base → spring | "
              "target saving | whole-robot saving @150 W computer |")
     L.append("|---|---|---|---|---|")
     for r in rows:
-        ob = r["all_servo_base_J"] + args.compute * r["duration_s"]
-        os_ = r["all_servo_spring_J"] + args.compute * r["duration_s"]
+        dur = r["duration_s"]
+        ob = r["all_servo_base_J"] + args.compute * dur
+        os_ = r["all_servo_spring_J"] + args.compute * dur
         L.append(f"| {r['robot']} | {r['target_label']} | "
-                 f"{r['target_base_J']:.0f} → {r['target_spring_J']:.0f} | "
+                 f"{r['target_base_J']/dur:.1f} → {r['target_spring_J']/dur:.1f} | "
                  f"{pct(r['target_base_J'], r['target_spring_J']):+.0f}% | "
                  f"{pct(ob, os_):+.1f}% |")
-    L.append("\n## Whole-robot saving vs assumed onboard-computer power\n")
-    head = "| robot | " + " | ".join(f"{w} W" for w in COMPUTE_SWEEP) + " |"
-    L.append(head); L.append("|" + "---|" * (len(COMPUTE_SWEEP) + 1))
-    for r in rows:
-        cells = []
-        for w in COMPUTE_SWEEP:
-            ob = r["all_servo_base_J"] + w * r["duration_s"]
-            os_ = r["all_servo_spring_J"] + w * r["duration_s"]
-            cells.append(f"{pct(ob, os_):+.0f}%")
-        L.append(f"| {r['robot'].split('(')[0].strip()} | " + " | ".join(cells) + " |")
     L.append("\n_All-servo (0 W computer) saving: " +
              ", ".join(f"{r['robot'].split('(')[0].strip()} "
                        f"{pct(r['all_servo_base_J'], r['all_servo_spring_J']):+.0f}%"

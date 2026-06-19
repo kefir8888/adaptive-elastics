@@ -8,6 +8,33 @@ happened, what's open/broken, and the single next step.
 
 ---
 
+## 2026-06-19 (cont.) — gravity-comp experiment suite + presentation renders + two model-loading fixes
+- **Did:** Galaxea — coordinated upright lift (3 springs), middle-joint-only lift (1 spring), forward LEAN
+  about the BOTTOM joint (1 linear spring), forward-reach knee torque-angle, and **5 "free" reaching motions**
+  (forward/down/up/side-twist/scan), each with a bottom-joint linear spring + energy compensation + video + plot
+  (`scripts/galaxea_{lift,lean,reach,free}.py`). Dog — redid the 4-phase height roll with the CORRECTED knee
+  direction + on-the-fly adaptive preload (`scripts/limx_phases.py`). Presentation — colored turntables + a
+  per-part palette (`scripts/pretty_render.py`, `render_util.apply_palette`). Bundle `outputs/gravity_compensation/`
+  (01–14 + `free_reaches/` + REPORT.md).
+- **Corrected (3 things the user caught):** (1) **W1 knee direction was mislabeled** — EXTENDED legs = HIGH body
+  = LOW knee torque; BENT = LOW = HIGH torque (straight legs easy, bent hard); over the full KFE range the knee
+  load varies ~4→28 N*m, so the adaptive preload genuinely tracks it. (2) **W1 mass:** the earlier "0.818 kg base,
+  added 17 kg torso" was a buggy read (`mj_name2id`→-1, then `body_mass[-1]` wraparound); the URDF `base` is
+  already **18.19 kg** (legs 25.3 → **43.5 kg total**), so the 17 kg override is ~a no-op and ~42 kg is the
+  vendor's own mass (legs are a heavy 58%). (3) **Galaxea "two bases at the shoulders"** = mesh-name collision
+  (A1-arm and R1-base packages both ship `base_link.obj`; MuJoCo keys meshes by stem). Fixed in
+  `urdf_loader.resolve_urdf` (package-qualified mesh symlinks); render-only, no result changes.
+- **Result / numbers:** Galaxea lift 3-spring **−95%**, 1-spring (middle) **−85%**, lean **−98%**; 5 reaches
+  **−97…−99%** (load scales with reach: down heaviest, up lightest); whole-robot −18…−21% @150 W. Dog 4-phase:
+  CoM 0.53→0.30 m, knee power rises as it squats, adaptive preload tracks **4→26 N*m**, knee power **−93%**.
+- **Open / broken:** motor Kt/R + masses still estimates; the ~25 kg leg mass (58% of the W1) is heavy (URDF
+  inertials); Galaxea `.obj` meshes are lower-detail than the repainted GLB (even fixed/colored, the sim look ≠
+  the GitHub render). Lots was uncommitted → committing now.
+- **Next (user's call):** finalize the dog mass; optionally re-render dog/reach clips in color too; Part-2
+  (explosive moves) still untouched.
+
+---
+
 ## 2026-06-19 — NEW direction: gravity-compensation springs on mobile manipulators (Galaxea lift + LimX dog) — BOTH positive
 - **Did:** Opened a Part-1 spinoff (user-directed): parallel springs on joints with CONSTANT-SIGN gravity load
   (body up/down, loading/unloading) — cleaner/faster than locomotion. Got two external URDF robots running

@@ -192,6 +192,37 @@ def vertical_lift_ik(model, data, top_body, z_path, x0=None, pitch0=0.0,
     return np.array(out)
 
 
+def track_ik(model, data, top_body, x_path, z_path, pitch_path, q_init=None,
+             iters=200, damp=1e-3, tol=1e-6):
+    """Track per-step targets (x, z, pitch) of top_body's origin with damped-least-squares
+    IK on the analytic body Jacobian (mj_jacBody). Generalizes vertical_lift_ik to a moving
+    horizontal/pitch target (e.g. a forward reach). Warm-started; returns q (N x ndof)."""
+    tb = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, top_body)
+    qa, _ = _joint_addrs(model)
+    lo, hi = model.jnt_range[:, 0].copy(), model.jnt_range[:, 1].copy()
+    jacp = np.zeros((3, model.nv)); jacr = np.zeros((3, model.nv))
+
+    def fk(q):
+        data.qpos[qa] = q
+        mujoco.mj_forward(model, data)
+        R = data.xmat[tb].reshape(3, 3)
+        return data.xpos[tb].copy(), float(np.arctan2(-R[2, 0], R[0, 0]))
+
+    q = np.zeros(model.nv) if q_init is None else np.asarray(q_init, float).copy()
+    out = []
+    for xt, zt, pt in zip(x_path, z_path, pitch_path):
+        for _ in range(iters):
+            pos, pitch = fk(q)
+            e = np.array([pos[0] - xt, pos[2] - zt, pitch - pt])
+            if np.abs(e).max() < tol:
+                break
+            mujoco.mj_jacBody(model, data, jacp, jacr, tb)
+            J = np.vstack([jacp[0], jacp[2], jacr[1]])
+            q = np.clip(q + J.T @ np.linalg.solve(J @ J.T + damp * np.eye(3), -e), lo, hi)
+        out.append(q.copy())
+    return np.array(out)
+
+
 def multi_joint_torque(model, data, q, dt):
     """Required motor torque per kept joint along a coordinated trajectory q(t), via the
     EXPLICIT equation of motion tau = M(q) qdd + qfrc_bias(q, qdot) on the reduced model

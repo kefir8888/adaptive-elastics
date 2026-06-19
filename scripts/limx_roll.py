@@ -228,17 +228,22 @@ def main():
         tag = "  <-- headline" if abs(w - cfg.compute_w) < 1e-6 else ""
         print(f"  {w:12.0f} {ob:16.0f} {os_:18.0f} {100*(os_-ob)/ob:+11.1f}%{tag}")
 
-    # torque-vs-angle plot (per leg knee) + constant preload spring
-    fig, ax = plt.subplots(figsize=(6, 4.5))
-    for leg in LEGS:
-        a = np.array(log0[leg + "_KFE"])
-        ax.plot(a[:, 2], a[:, 0], ".", ms=2, label=f"{leg} knee torque")
-    for leg in LEGS:
-        ax.axhline(preload[leg], ls="--", lw=1, alpha=0.6)
-    ax.set_xlabel("knee (KFE) angle (rad)"); ax.set_ylabel("motor torque (N*m)")
-    ax.set_title(f"LimX W1 rolling: knee torque vs angle + constant preload spring "
-                 f"(knee {100*(e1['knee']-e0['knee'])/e0['knee']:+.0f}%)")
-    ax.legend(fontsize=7); ax.grid(alpha=0.3); fig.tight_layout()
+    # ONE calf (knee), torque over TIME, with the constant preload spring drawn. (In steady
+    # wheeled rolling the knee holds a near-constant ANGLE, so torque-vs-angle is degenerate;
+    # time shows the constant-sign holding load, the constant spring offload, and the residual.)
+    LEG = "LH"                                          # one representative (hind) knee
+    a0 = np.array(log0[LEG + "_KFE"]); a1 = np.array(log1[LEG + "_KFE"])
+    t = np.arange(len(a0)) * cfg.dt
+    fig, ax = plt.subplots(figsize=(7, 4.3))
+    ax.plot(t, a0[:, 0], lw=1.1, color="tab:blue", label="motor torque — no spring")
+    ax.plot(t[:len(a1)], a1[:, 0], lw=1.1, color="tab:green", label="motor torque — with spring")
+    ax.axhline(preload[LEG], color="tab:red", lw=2.5,
+               label=f"parallel spring (constant preload {preload[LEG]:.0f} N*m)")
+    ax.axhline(0.0, color="gray", lw=0.8, alpha=0.6)
+    ax.set_xlabel("time into roll (s)"); ax.set_ylabel(f"{LEG} knee (KFE) motor torque (N*m)")
+    ax.set_title(f"LimX W1 rolling — {LEG} knee motor torque + parallel spring "
+                 f"(knee-motor energy {100*(e1['knee']-e0['knee'])/e0['knee']:+.0f}%)")
+    ax.legend(fontsize=8); ax.grid(alpha=0.3); fig.tight_layout()
     pathlib.Path("outputs/gravity_compensation/raw/limx").mkdir(parents=True, exist_ok=True)
     fig.savefig("outputs/gravity_compensation/raw/limx/limx_taus.png", dpi=130); plt.close(fig)
     print("\nWROTE outputs/gravity_compensation/raw/limx/limx_taus.png")

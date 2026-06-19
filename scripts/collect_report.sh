@@ -7,9 +7,74 @@ cd "$(dirname "$0")/.."
 DST=outputs/gravity_compensation
 RAW=$DST/raw
 mkdir -p "$DST"
-cp "$RAW/galaxea/galaxea_lift.mp4"  "$DST/01_galaxea_coordinated_upright_lift.mp4"
-cp "$RAW/galaxea/galaxea_taus.png"  "$DST/02_galaxea_torque_vs_angle_fitted_springs.png"
-cp "$RAW/limx/limx_roll_spring.mp4" "$DST/03_limx_w1_wheeled_roll.mp4"
-cp "$RAW/limx/limx_taus.png"        "$DST/04_limx_w1_knee_torque_vs_angle.png"
+cp "$RAW/galaxea/galaxea_lift.mp4"          "$DST/01_galaxea_coordinated_upright_lift.mp4"
+cp "$RAW/galaxea/galaxea_taus.png"          "$DST/02_galaxea_torque_vs_angle_fitted_springs.png"
+cp "$RAW/limx/limx_roll_spring.mp4"         "$DST/03_limx_w1_wheeled_roll.mp4"
+cp "$RAW/limx/limx_taus.png"                "$DST/04_limx_w1_knee_torque_over_time.png"
+cp "$RAW/galaxea/galaxea_taus_kneeonly.png" "$DST/06_galaxea_spring_middle_joint_only.png"
+[ -f "$RAW/galaxea/galaxea_lift_kneeonly.mp4" ] && cp "$RAW/galaxea/galaxea_lift_kneeonly.mp4" "$DST/06_galaxea_lift_middle_joint_only.mp4"
+rm -f "$DST/04_limx_w1_knee_torque_vs_angle.png"   # superseded by the over-time plot
+# compact, loopable GIF versions of the two clips (trimmed to a few representative cycles)
+gif () {  # $1=in mp4  $2=out gif  $3=ss(s)  $4=t(s)
+  ffmpeg -y -loglevel error -ss "$3" -t "$4" -i "$1" \
+    -filter_complex "fps=12,scale=560:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=128[p];[s1][p]paletteuse=dither=bayer" "$2"
+}
+gif "$DST/01_galaxea_coordinated_upright_lift.mp4" "$DST/01_galaxea_coordinated_upright_lift.gif" 0 7.6
+gif "$DST/03_limx_w1_wheeled_roll.mp4"             "$DST/03_limx_w1_wheeled_roll.gif"             2 7
+[ -f "$DST/06_galaxea_lift_middle_joint_only.mp4" ] && gif "$DST/06_galaxea_lift_middle_joint_only.mp4" "$DST/06_galaxea_lift_middle_joint_only.gif" 0 7.6
+
+# cyclic forward-reach experiment (scripts/galaxea_reach.py)
+if [ -f "$RAW/galaxea_reach/reach.mp4" ]; then
+  cp "$RAW/galaxea_reach/reach.mp4"                  "$DST/07_galaxea_forward_reach.mp4"
+  cp "$RAW/galaxea_reach/reach_knee_torque_angle.png" "$DST/08_galaxea_reach_knee_torque_angle.png"
+  # lower-res gif (the reach is long: full 3 cycles at 10 fps, 480 px)
+  ffmpeg -y -loglevel error -i "$RAW/galaxea_reach/reach.mp4" \
+    -filter_complex "fps=10,scale=480:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=128[p];[s1][p]paletteuse=dither=bayer" \
+    "$DST/07_galaxea_forward_reach.gif"
+fi
+
+# LimX 4-phase body-height roll + adaptive knee spring (scripts/limx_phases.py)
+if [ -f "$RAW/limx_phases/phases.mp4" ]; then
+  cp "$RAW/limx_phases/phases.mp4"            "$DST/09_limx_w1_height_phases_adaptive.mp4"
+  cp "$RAW/limx_phases/phases_timeplots.png"  "$DST/10_limx_w1_height_phases_timeplots.png"
+  ffmpeg -y -loglevel error -t 22 -i "$RAW/limx_phases/phases.mp4" \
+    -filter_complex "fps=6,scale=380:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=64[p];[s1][p]paletteuse=dither=none" \
+    "$DST/09_limx_w1_height_phases_adaptive.gif"
+fi
+
+# Galaxea forward-lean with a linear spring on the bottom torso joint (scripts/galaxea_lean.py)
+if [ -f "$RAW/galaxea_lean/lean.mp4" ]; then
+  cp "$RAW/galaxea_lean/lean.mp4"              "$DST/11_galaxea_lean_bottom_joint_spring.mp4"
+  cp "$RAW/galaxea_lean/lean_torque_angle.png" "$DST/12_galaxea_lean_bottom_joint_torque_angle.png"
+  ffmpeg -y -loglevel error -t 11 -i "$RAW/galaxea_lean/lean.mp4" \
+    -filter_complex "fps=10,scale=480:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=96[p];[s1][p]paletteuse=dither=bayer" \
+    "$DST/11_galaxea_lean_bottom_joint_spring.gif"
+fi
+
+# presentation-quality colored turntables + stills (scripts/pretty_render.py)
+if [ -d "$RAW/pretty" ]; then
+  for r in "galaxea:13" "dog:14"; do
+    name=${r%%:*}; num=${r##*:}
+    [ -f "$RAW/pretty/${name}_turntable.mp4" ] || continue
+    cp "$RAW/pretty/${name}_pretty.png"      "$DST/${num}_${name}_rendered.png"
+    cp "$RAW/pretty/${name}_turntable.mp4"   "$DST/${num}_${name}_turntable.mp4"
+    ffmpeg -y -loglevel error -i "$RAW/pretty/${name}_turntable.mp4" \
+      -filter_complex "fps=10,scale=400:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=64[p];[s1][p]paletteuse=dither=none" \
+      "$DST/${num}_${name}_turntable.gif"
+  done
+fi
+
+# Galaxea 5 'free' reaching motions, bottom-joint spring (scripts/galaxea_free.py) -> subfolder
+if [ -d "$RAW/galaxea_free" ]; then
+  mkdir -p "$DST/free_reaches"
+  for opt in forward reach_down reach_up side_twist free_scan; do
+    [ -f "$RAW/galaxea_free/$opt.mp4" ] || continue
+    cp "$RAW/galaxea_free/${opt}_torque_angle.png" "$DST/free_reaches/${opt}_torque_angle.png"
+    ffmpeg -y -loglevel error -t 11 -i "$RAW/galaxea_free/$opt.mp4" \
+      -filter_complex "fps=9,scale=440:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=96[p];[s1][p]paletteuse=dither=bayer" \
+      "$DST/free_reaches/$opt.gif"
+  done
+fi
+
 echo "report assembled in $DST/ :"
 ls -1 "$DST"

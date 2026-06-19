@@ -1,8 +1,9 @@
 # LimX W1 (WL_P311D) wheeled-quadruped rolling-energy experiment (scripts/limx_roll.py).
 # 20 s roll on flat ground; constant per-leg knee (calf/KFE) preload spring offloads the
 # constant-sign stance holding torque. Wheel transport billed analytically (Crr*m*g*d).
-torso_mass_kg: 17.0        # ESTIMATE (no official W1 mass; ~40 kg total press estimate);
-                           # model legs ~24.5 kg + this base -> ~41 kg total.
+torso_mass_kg: 17.0        # overrides the `base` body mass. The URDF already gives base 18.19 kg
+                           # (legs 25.3 -> ~43.5 kg total), so this 17.0 is a near-no-op, NOT mass
+                           # added to a near-zero base; W1 total stays ~42 kg (~40 kg press estimate).
 crr: 0.015                 # rolling-resistance coeff, rubber/PU wheel on concrete
 wheel_radius: 0.127        # m (model wheel geom)
 wheel_speed: 6.0           # rad/s (-> ~0.76 m/s)

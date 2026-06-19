@@ -166,9 +166,16 @@ Edit in VS Code → `git push` to GitHub → Colab `pip install`s the repo + run
 - **Loading external URDFs into MuJoCo** (`urdf_loader`): resolve `package://`, convert `.glb`→`.obj` (MuJoCo
   decodes only STL/OBJ/MSH; `setup_robots.sh` pre-converts), and compile with `discardvisual="false"` (default
   true drops visual meshes AND any added skybox/floor textures → dark renders) + `fusestatic="false"` (default
-  fuses welded link bodies, removing IK target bodies like `torso_link4`). URDF full-extension pose is an IK
-  singularity → seed the IK bent. Velocity-servo wheels micro-slip on soft contact → bill rolling-resistance
-  transport analytically (Crr·m·g·distance), not the servo actuator force.
+  fuses welded link bodies, removing IK target bodies like `torso_link4`). **Same-stem meshes across packages
+  COLLIDE** — MuJoCo keys meshes by filename stem, so the Galaxea A1-arm and R1-base packages both shipping
+  `base_link.obj` made the arms render a second base ("two bases at the shoulders"); `resolve_urdf` now symlinks
+  each mesh to a package-qualified name. Render-only: body MASSES come from URDF `<inertial>`, not meshes.
+  **Read masses by the RIGHT body name** — the W1 root is `base` (18.19 kg), not `base_link`; `mj_name2id` returns
+  −1 for a missing name and `body_mass[-1]` then silently returns the LAST body's mass (a 0.8 kg wheel). The W1
+  is ~43.5 kg in the URDF (base 18 + legs 25); don't "add a torso" to a misread near-zero base. **`.obj` meshes
+  carry no material** → flat grey in MuJoCo; `render_util.apply_palette` colors parts by body name for renders.
+  URDF full-extension pose is an IK singularity → seed the IK bent. Velocity-servo wheels micro-slip on soft
+  contact → bill rolling-resistance transport analytically (Crr·m·g·distance), not the servo actuator force.
 - **Always `impl: jax`** (a RunConfig field): Playground 0.2.0 defaults the env to
   MuJoCo Warp, which is broken on Mac and was never validated for this project.
 - **jax pinned `<0.10`**: brax 0.14.2 (latest) calls `jax.device_put_replicated`,

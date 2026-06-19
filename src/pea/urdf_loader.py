@@ -81,6 +81,24 @@ def resolve_urdf(urdf_path, search_root=None) -> pathlib.Path:
         )
     # MuJoCo can't decode GLB; setup_robots.sh pre-converted every .glb -> .obj.
     txt = txt.replace(".glb", ".obj").replace(".GLB", ".obj")
+    # Disambiguate same-stem meshes across packages: MuJoCo keys meshes by filename STEM,
+    # so e.g. the Galaxea A1-arm and R1-base packages both shipping `base_link.obj` collapse
+    # into one mesh -> the arm shoulders render the mobile base. Symlink each referenced mesh
+    # to a package-qualified name and point the URDF at it (so every stem is unique).
+    for path in sorted(set(re.findall(r'filename="([^"]+\.(?:obj|stl|msh|dae))"', txt, re.I))):
+        p = pathlib.Path(path)
+        if not p.is_absolute() or not p.exists():
+            continue
+        uniq = f"{p.parent.parent.name}__{p.name}"   # e.g. galaxea_a1_description__base_link.obj
+        if uniq == p.name:
+            continue
+        link = p.parent / uniq
+        if not link.exists():
+            try:
+                os.symlink(p.name, link)
+            except OSError:
+                continue
+        txt = txt.replace(f'filename="{path}"', f'filename="{link}"')
     fixed = urdf_path.with_suffix(".mjfixed.urdf")
     fixed.write_text(txt)
     return fixed
