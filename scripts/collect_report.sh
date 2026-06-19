@@ -16,37 +16,38 @@ cp "$RAW/galaxea/galaxea_taus_kneeonly.png" "$DST/06_galaxea_spring_middle_joint
 rm -f "$DST/04_limx_w1_knee_torque_vs_angle.png"   # superseded by the over-time plot
 # Compact, loopable, HIGH-RES GIFs (trimmed to a few representative cycles). Full 256-color
 # palette + bayer (ordered) dither: stable across frames (no dither "flicker") and compresses
-# far better than error-diffusion; diff_mode=rectangle skips static regions. Slow clips trade
-# frame-rate for resolution to stay ~5-7 MB at 720 px (the long phases clip drops to 600 px).
+# far better than error-diffusion; diff_mode=rectangle skips static regions. Resolution 720 px
+# and a smooth ~15 fps are prioritized over file size (clips run ~6-12 MB; the long ~20 s phases
+# clip is ~18 MB, kept at 560 px / 12 fps so it doesn't balloon further).
 gif () {  # in_mp4 out_gif ss(s) t(s) fps width
   ffmpeg -y -loglevel error -ss "$3" -t "$4" -i "$1" \
     -filter_complex "fps=$5,scale=$6:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=256:stats_mode=full[p];[s1][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle" "$2"
 }
-gif "$DST/01_galaxea_coordinated_upright_lift.mp4" "$DST/01_galaxea_coordinated_upright_lift.gif" 0 7.6 10 720
-gif "$DST/03_limx_w1_wheeled_roll.mp4"             "$DST/03_limx_w1_wheeled_roll.gif"             2 7   8  720
-[ -f "$DST/06_galaxea_lift_middle_joint_only.mp4" ] && gif "$DST/06_galaxea_lift_middle_joint_only.mp4" "$DST/06_galaxea_lift_middle_joint_only.gif" 0 7.6 10 720
+gif "$DST/01_galaxea_coordinated_upright_lift.mp4" "$DST/01_galaxea_coordinated_upright_lift.gif" 0 7.6 15 720
+gif "$DST/03_limx_w1_wheeled_roll.mp4"             "$DST/03_limx_w1_wheeled_roll.gif"             2 7   15 720
+[ -f "$DST/06_galaxea_lift_middle_joint_only.mp4" ] && gif "$DST/06_galaxea_lift_middle_joint_only.mp4" "$DST/06_galaxea_lift_middle_joint_only.gif" 0 7.6 15 720
 
 # cyclic forward-reach experiment (scripts/galaxea_reach.py)
 if [ -f "$RAW/galaxea_reach/reach.mp4" ]; then
   cp "$RAW/galaxea_reach/reach.mp4"                  "$DST/07_galaxea_forward_reach.mp4"
   cp "$RAW/galaxea_reach/reach_knee_torque_angle.png" "$DST/08_galaxea_reach_knee_torque_angle.png"
   # high-res gif, trimmed to ~2 reach cycles (the reach is slow)
-  gif "$RAW/galaxea_reach/reach.mp4" "$DST/07_galaxea_forward_reach.gif" 0 16 9 720
+  gif "$RAW/galaxea_reach/reach.mp4" "$DST/07_galaxea_forward_reach.gif" 0 16 15 720
 fi
 
 # LimX 4-phase body-height roll + adaptive knee spring (scripts/limx_phases.py)
 if [ -f "$RAW/limx_phases/phases.mp4" ]; then
   cp "$RAW/limx_phases/phases.mp4"            "$DST/09_limx_w1_height_phases_adaptive.mp4"
   cp "$RAW/limx_phases/phases_timeplots.png"  "$DST/10_limx_w1_height_phases_timeplots.png"
-  # long clip (~20 s): lower fps + 600 px to keep size moderate at higher resolution
-  gif "$RAW/limx_phases/phases.mp4" "$DST/09_limx_w1_height_phases_adaptive.gif" 0 22 4 600
+  # long clip (~20 s): 12 fps + 560 px so the smooth frame-rate doesn't blow the size up
+  gif "$RAW/limx_phases/phases.mp4" "$DST/09_limx_w1_height_phases_adaptive.gif" 0 22 12 560
 fi
 
 # Galaxea forward-lean with a linear spring on the bottom torso joint (scripts/galaxea_lean.py)
 if [ -f "$RAW/galaxea_lean/lean.mp4" ]; then
   cp "$RAW/galaxea_lean/lean.mp4"              "$DST/11_galaxea_lean_bottom_joint_spring.mp4"
   cp "$RAW/galaxea_lean/lean_torque_angle.png" "$DST/12_galaxea_lean_bottom_joint_torque_angle.png"
-  gif "$RAW/galaxea_lean/lean.mp4" "$DST/11_galaxea_lean_bottom_joint_spring.gif" 0 11 9 720
+  gif "$RAW/galaxea_lean/lean.mp4" "$DST/11_galaxea_lean_bottom_joint_spring.gif" 0 11 15 720
 fi
 
 # presentation-quality colored turntables + stills (scripts/pretty_render.py).
@@ -59,7 +60,7 @@ if [ -d "$RAW/pretty" ]; then
     [ -f "$RAW/pretty/${name}_turntable.mp4" ] || continue
     cp "$RAW/pretty/${name}_pretty.png"      "$DST/_superseded/${num}_${name}_rendered.png"
     cp "$RAW/pretty/${name}_turntable.mp4"   "$DST/_superseded/${num}_${name}_turntable.mp4"
-    gif "$RAW/pretty/${name}_turntable.mp4" "$DST/_superseded/${num}_${name}_turntable.gif" 0 6 10 720
+    gif "$RAW/pretty/${name}_turntable.mp4" "$DST/_superseded/${num}_${name}_turntable.gif" 0 6 20 720
   done
 fi
 
@@ -69,7 +70,7 @@ if [ -d "$RAW/galaxea_free" ]; then
   for opt in forward reach_down reach_up side_twist free_scan; do
     [ -f "$RAW/galaxea_free/$opt.mp4" ] || continue
     cp "$RAW/galaxea_free/${opt}_torque_angle.png" "$DST/free_reaches/${opt}_torque_angle.png"
-    gif "$RAW/galaxea_free/$opt.mp4" "$DST/free_reaches/$opt.gif" 0 11 9 720
+    gif "$RAW/galaxea_free/$opt.mp4" "$DST/free_reaches/$opt.gif" 0 11 15 720
   done
 fi
 
