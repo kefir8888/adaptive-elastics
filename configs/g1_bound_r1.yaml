@@ -1,0 +1,26 @@
+# G1 BOUNDING, Stage R1 (elicit a slow forward alternating-foot run) — warm-start from
+# the two-footed hopper. Anti-phase clock (feet alternate), slow forward command, soft
+# termination for exploration. First stage of the autonomous running curriculum.
+name: g1_bound_r1
+env_name: G1JoystickBound
+seed: 1
+domain_randomization: true
+num_timesteps: 100000000
+env_overrides:
+  reward_config.tracking_sigma: 0.5
+  reward_config.max_foot_height: 0.22
+reward_scales:
+  termination: -50.0
+  action_rate: -0.01
+  dof_acc: -2.5e-7
+  torques: -2.0e-5
+command_forward:
+  vx_min: 0.5
+  vx_max: 1.2
+  vy_max: 0.1
+  vyaw_max: 0.2
+spring:
+  kind: none
+energy_reward_weight: 0.0
+energy_motor: g1
+ppo: {}

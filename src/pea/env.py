@@ -24,6 +24,7 @@ from pea.config import RunConfig
 # G1JoystickFlatTerrain or the Go1 path.
 from pea import g1_run_env  # noqa: F401,E402  (registers "G1JoystickRun")
 from pea import g1_hop_env  # noqa: F401,E402  (registers "G1JoystickHop")
+from pea import g1_bound_env  # noqa: F401,E402  (registers "G1JoystickBound")
 
 
 def scale_hfield(hfield_size, factor: float):

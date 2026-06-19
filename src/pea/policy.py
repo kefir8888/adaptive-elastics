@@ -31,6 +31,7 @@ from pea.config import RunConfig
 _PPO_CONFIG_ALIAS = {
     "G1JoystickHop": "G1JoystickFlatTerrain",
     "G1JoystickRun": "G1JoystickFlatTerrain",
+    "G1JoystickBound": "G1JoystickFlatTerrain",
 }
 
 
