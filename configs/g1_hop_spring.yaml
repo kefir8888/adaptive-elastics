@@ -1,0 +1,43 @@
+# G1 continuous-HOPPING, SPRING arm — SKETCH, params NOT finalized (await the work-loop).
+#
+# The matched-task energy comparison (run AFTER the Stage-1 hop is stable):
+#   1. Roll out the Stage-1 hop; build the knee (and ankle!) torque-angle WORK-LOOP over the
+#      hop cycle. The pogo-stick element is a ONE-SIDED stiffness spring that engages as the
+#      joint flexes under landing/crouch and returns the energy at push-off (springs.py
+#      kind 'one_sided_linear'). Fit theta_engage (the angle where flexion begins to load the
+#      spring), engage_sign, and k from the loop. Plot ALL leg joints; let the data pick the
+#      joint (knee vs ankle).
+#   2. FIX the task so both arms are identical: set reward_config.hop_freq (a fixed cadence)
+#      and reward_config.hop_height_target (a fixed apex) below, and turn the energy penalty
+#      ON at the SAME weight in both arms. Fork BOTH arms from the same Stage-1 checkpoint;
+#      the spring is the ONLY between-condition difference. Do NOT warm-start the spring arm
+#      from the no-spring runner (it anchors the gait and hides co-adaptation).
+#   3. Compare electrical ENERGY PER HOP (or mean electrical power) at the matched
+#      cadence + apex, with survival/stability. NOT cost-of-transport (no forward speed).
+#
+# Metric reminder: in-place hopping has zero forward speed, so CoT is undefined — report
+# J/hop (or W at matched height+cadence), plus the no-regen vs regen sensitivity.
+name: g1_hop_spring
+env_name: G1JoystickHop
+seed: 1
+domain_randomization: true
+num_timesteps: 200000000
+env_overrides:
+  reward_config.tracking_sigma: 0.5
+  reward_config.max_foot_height: 0.22
+  reward_config.hop_freq: 1.8            # FIXED cadence (Hz) — match the no-spring arm
+  reward_config.hop_height_target: 0.20  # FIXED apex (m above standing) — match the no-spring arm
+reward_scales:
+  termination: -100.0                     # full termination for the consolidated comparison
+  action_rate: -0.01
+  dof_acc: -2.5e-7
+  torques: -1.0e-4
+spring:
+  kind: one_sided_linear                  # pogo-stick: engages in flexion, returns at push-off
+  joint: knee                             # CANDIDATE — confirm vs ankle from the work-loop
+  theta_engage: 0.0                       # TODO: angle where the spring starts to load (from loop)
+  engage_sign: 1.0                        # TODO: which side engages (from loop)
+  k: 0.0                                  # TODO: stiffness N*m/rad (from loop)
+energy_reward_weight: -2.5e-4             # ON for the comparison; MUST equal the no-spring arm
+energy_motor: g1
+ppo: {}

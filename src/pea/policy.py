@@ -23,9 +23,21 @@ from mujoco_playground.config import locomotion_params
 from pea.config import RunConfig
 
 
+# Custom env subclasses (g1_run_env, g1_hop_env) share their base robot's obs/action
+# sizes and network, so they reuse the stock base's tuned PPO config. brax_ppo_config
+# keys on a FIXED env-name list and raises "Unsupported env" otherwise, so map the
+# custom names to the stock base for that lookup. (env_name itself stays the custom
+# one everywhere else — only the hyperparameter lookup is aliased.)
+_PPO_CONFIG_ALIAS = {
+    "G1JoystickHop": "G1JoystickFlatTerrain",
+    "G1JoystickRun": "G1JoystickFlatTerrain",
+}
+
+
 def ppo_params_for(cfg: RunConfig):
     """Playground's recommended brax PPO config (ml_collections ConfigDict)."""
-    return locomotion_params.brax_ppo_config(cfg.env_name, cfg.impl)
+    name = _PPO_CONFIG_ALIAS.get(cfg.env_name, cfg.env_name)
+    return locomotion_params.brax_ppo_config(name, cfg.impl)
 
 
 def network_factory_for(cfg: RunConfig):

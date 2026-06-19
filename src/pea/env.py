@@ -15,6 +15,16 @@ from mujoco_playground import registry
 from pea import springs
 from pea.config import RunConfig
 
+# Register the custom envs ("G1JoystickRun", "G1JoystickHop") at IMPORT time, not
+# lazily inside make_env. train.py resolves PPO params via brax_ppo_config(env_name)
+# -> locomotion.get_default_config(env_name) BEFORE it ever calls make_env, so the
+# registration side effect must already have happened by the time pea.env is
+# imported (train.py imports `from pea.env import make_env` up front). Importing
+# these modules runs their register() on import. Neither touches the stock
+# G1JoystickFlatTerrain or the Go1 path.
+from pea import g1_run_env  # noqa: F401,E402  (registers "G1JoystickRun")
+from pea import g1_hop_env  # noqa: F401,E402  (registers "G1JoystickHop")
+
 
 def scale_hfield(hfield_size, factor: float):
     """Scale rough-terrain bump heights by `factor`, IN PLACE on `hfield_size`.
@@ -32,12 +42,8 @@ def scale_hfield(hfield_size, factor: float):
 
 
 def make_env(cfg: RunConfig):
-    # Importing g1_run_env registers the running env "G1JoystickRun" in the
-    # Playground registry (side effect on import). Harmless if the config does not
-    # use it; required before registry.load when env_name is the runner. Does not
-    # touch G1JoystickFlatTerrain or the Go1 path.
-    from pea import g1_run_env  # noqa: F401
-
+    # g1_run_env / g1_hop_env are registered at module import (see top of file), so
+    # registry.get_default_config below resolves "G1JoystickRun" / "G1JoystickHop".
     env_cfg = registry.get_default_config(cfg.env_name)
     env_cfg.impl = cfg.impl  # 'jax', not the broken Warp default
     for key, value in cfg.reward_scales.items():

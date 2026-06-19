@@ -96,6 +96,21 @@ between-conditions knob (engage for explosive, disengage for precise/efficient).
 Gearing is the crux for BOTH parts; maximum jump HEIGHT may point off the G1 (a
 low-gear quadruped or a DecART-style leg-length / series element).
 
+**ACTIVE (2026-06-19) — Part 2 restarted on the G1: continuous-hopping for ENERGY.**
+User-directed: a parallel knee/ankle spring on **continuous, two-footed, IN-PLACE
+HOPPING** (jump→land→jump…) — the **repetitive** corner of B2, where landing-braking
+energy (the spring's recovery channel) dominates and cross-cycle recovery applies
+(unlike a one-shot jump). HEIGHT stays off-limits (knee speed-limited, NR-7); we
+target **energy per hop (J/hop) at a matched apex+cadence — NOT CoT** (zero forward
+speed). Built `G1JoystickHop` (`src/pea/g1_hop_env.py`): synchronous gait clock, five
+hop reward terms (signed `hop_rhythm` + dense `hop_push` defeat the stand-still trap),
+in-place command, config-fixable cadence/apex for the matched comparison. Spring =
+knee/ankle **one_sided_linear** pogo, fit from a baseline work-loop. Authoritative
+plan + validity checklist: **`docs/hop_design.md`**; configs `g1_hop_s1` (elicit → run
+first), `g1_hop_baseline`+`g1_hop_spring` (matched pair). Validated locally (reset/step
++ full PPO `--smoke`); **next: train S1 on the GPU, gate on a real flight window.**
+(The dog-/G1-running and gravity-comp tracks stay as they were.)
+
 ## Session ritual
 Project memory lives on disk, not in any single conversation. Work in short, task-scoped
 sessions and start fresh ones freely (a new session reloads this file automatically).
@@ -139,15 +154,19 @@ sessions and start fresh ones freely (a new session reloads this file automatica
 
 ## Repo structure (three layers)
 - `src/pea/` — shared core, imported by everything:
-  - `env.py` (G1 walking env; optionally injects spring torque)
-  - `springs.py` (`τ_spring(θ)`: linear + nonlinear/tunable)
+  - `env.py` (G1 walking env; optionally injects spring/energy wrappers; **registers the custom
+    env subclasses at import** so `train.py`'s `ppo_params_for` finds them before `make_env`)
+  - dynamic-movement env subclasses: `g1_run_env.py` (`G1JoystickRun`, flight-enabling),
+    `g1_hop_env.py` (`G1JoystickHop`, continuous two-footed hopping — ACTIVE Part-2 dir).
+    Custom G1 env names alias to `G1JoystickFlatTerrain`'s PPO config in `policy.ppo_params_for`.
+  - `springs.py` (`τ_spring(θ)`: linear + nonlinear/tunable; `one_sided_linear` = hop pogo element)
   - `energy.py` (copper-loss model + cost of transport; `MOTORS` incl. `limx_knee`, `galaxea_torso`, `galaxea_arm`)
   - `policy.py` (network def + load/save), `config.py`
   - gravity-comp direction: `urdf_loader.py` (load EXTERNAL ROS/URDF robots into MuJoCo: package:// + glb→obj),
     `gravcomp.py` (trajectory, torque, electrical energy, spring fit, reduced-model IK), `render_util.py` (offscreen video + scene)
 - `scripts/` — `train.py` (Colab), `rollout.py` (local), `analyze.py` (local); gravity-comp:
   `galaxea_lift.py`, `limx_roll.py`, `gravcomp_table.py`, `setup_robots.sh` (fetch/convert robots), `collect_report.sh`
-- `configs/` — no-spring (`baseline.yaml`, `walk_baseline.yaml`) + spring arms (`spring_hip_linear.yaml`, `spring_linear.yaml`, `spring_constant.yaml`, `spring_semiparabolic.yaml`); gravity-comp: `galaxea_lift.yaml`, `limx_roll.yaml`
+- `configs/` — no-spring (`baseline.yaml`, `walk_baseline.yaml`) + spring arms (`spring_hip_linear.yaml`, `spring_linear.yaml`, `spring_constant.yaml`, `spring_semiparabolic.yaml`); G1 hopping (`g1_hop_s1.yaml` elicit, `g1_hop_baseline.yaml` + `g1_hop_spring.yaml` matched pair); gravity-comp: `galaxea_lift.yaml`, `limx_roll.yaml`
 - `notebooks/colab_train.ipynb` — thin runner: pip-install repo, mount Drive, call train.py
 - `external/` — gitignored; cloned robot descriptions (fiveages + LimX), regenerate with `scripts/setup_robots.sh`
 - `outputs/` — gitignored; `gravity_compensation/` (active reporting bundle), `_locomotion_archive/` (suspended-track artifacts), one folder per training run (config, checkpoint, metrics, trajectory)

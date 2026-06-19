@@ -1,0 +1,35 @@
+# G1 continuous-HOPPING, Stage 1 (elicit) — from scratch, no spring, no energy penalty.
+# Goal: get a stable, continuous, two-footed IN-PLACE hop (crouch -> push -> flight ->
+# land -> repeat). Uses the hopping env subclass (env_name: G1JoystickHop): synchronous
+# gait clock (phase [0,0]), air-time un-capped to 0.8 s, the walk-only anti-hop terms
+# neutralized in the env default (feet_phase 0, stand_still 0, joint_deviation_knee 0),
+# and the four hop terms (hop_rhythm/height/sync/flight) registered with sensible default
+# weights. Here we only add smoothness (anti-chatter), soften termination for stage 1, and
+# widen tracking_sigma so hop-induced horizontal jitter is not over-penalized.
+#
+# GATE before spending on the spring arms: at eval, confirm a REAL both-feet-airborne
+# window each cycle (min-over-cycle of (contact_L + contact_R == 0) is satisfied), a steady
+# cadence, and survival over the full episode. If it just bobs without leaving the ground,
+# raise hop_rhythm / hop_flight / hop_height; if it does ONE big jump then stands, that is
+# the single-leap degeneracy -> rely on the clock (already on) and, if needed, fix the
+# cadence (env_overrides reward_config.hop_freq) so repeated hops are required.
+#
+# Build verified locally (reset + step); NOT yet trained.
+name: g1_hop_s1
+env_name: G1JoystickHop
+seed: 1
+domain_randomization: true
+num_timesteps: 200000000
+env_overrides:
+  reward_config.tracking_sigma: 0.5      # forgiving horizontal tracking (in-place hop jitter)
+  reward_config.max_foot_height: 0.22    # allow a higher foot lift
+reward_scales:
+  termination: -50.0                      # softened from -100 for stage 1 (avoid never-leave-ground)
+  action_rate: -0.01                      # smoothness / anti-chatter (THE de-sawtooth fix)
+  dof_acc: -2.5e-7
+  torques: -2.0e-5                        # soft: do NOT suppress the push-off
+spring:
+  kind: none
+energy_reward_weight: 0.0                 # OFF while eliciting the hop; restored for the comparison
+energy_motor: g1
+ppo: {}

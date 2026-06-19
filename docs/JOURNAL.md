@@ -8,6 +8,40 @@ happened, what's open/broken, and the single next step.
 
 ---
 
+## 2026-06-19 (cont. 4) — Part 2 RESTARTED on the G1: continuous-hopping env subclass built + validated
+- **Did:** User reopened the G1 dynamic-movement track (toward running), starting with JUMPING — specifically
+  **CONTINUOUS, two-footed, IN-PLACE HOPPING for ENERGY** (jump → land → jump …). Built `src/pea/g1_hop_env.py`
+  (`G1JoystickHop`), a minimal Playground G1-walk subclass: synchronous gait clock (phase `[0,0]`), air-time
+  un-capped, walk-only anti-hop terms neutralized (feet_phase/stand_still/joint_deviation_knee→0, pose→−0.05),
+  `max_contact_force` 500→2000, in-place zero command, + **five hop reward terms** (signed `hop_rhythm` backbone,
+  dense `hop_push` bootstrap, `hop_height` [maximize|track], `hop_sync`, `hop_flight`). Configs: `g1_hop_s1`
+  (elicit), `g1_hop_baseline` + `g1_hop_spring` (matched pair, params TBD). Design doc **`docs/hop_design.md`**.
+- **Decided / why:** (a) Hopping is **REPETITIVE** → energy recovery + a controlled-task energy metric apply
+  (unlike a one-shot jump), and **landing-braking** (the spring's recovery channel) dominates → the defensible
+  **B2** case. (b) Metric = **energy per hop (J/hop)** at MATCHED apex+cadence, **NOT CoT** (no forward speed).
+  (c) HEIGHT stays off-limits for a parallel spring (knee speed-limited, NR-7) — we target energy/peak-load.
+  (d) Spring = knee/ankle **one_sided_linear** pogo, fit from a baseline work-loop (plot all leg joints).
+  Reverses the old "hopping dropped" note (that was a Raibert 1-leg hopper; this is a full humanoid both-feet hop).
+- **Validated (3 adversarial fresh-agent reviews + local probes).** Reviews: reward-hacking, MJX/API, validity.
+  Found + fixed: **(1) standing-still trap / reward barrier** — naive reward let "just stand" win and the path to
+  hopping ran downhill first → fixed with the SIGNED `hop_rhythm` (no free +0.5 floor) + the dense `hop_push`
+  (rewards upward pelvis velocity while grounded). **(2) height-reference BUG** — used base_height_target=0.5,
+  but the real standing pelvis z is **≈0.755** (`self._init_q[2]`); without the fix the robot scored height just
+  for standing. **(3) two TRAINING-PIPELINE bugs that would have crashed on the GPU** (both also latent for
+  `G1JoystickRun`): custom envs were registered lazily INSIDE make_env but `train.py` calls `ppo_params_for`
+  first → moved registration to `pea.env` import; and `brax_ppo_config` has no entry for the custom names →
+  aliased `G1JoystickHop`/`Run`→`G1JoystickFlatTerrain` in `policy.ppo_params_for`. Probes (CPU): reset/step
+  finite + correct shaping; **full PPO `--smoke` pipeline trains/evals/checkpoints** (reward −4.0→−1.8 in 30k);
+  DR randomizer resolves; spring+energy wrappers compose with the hop env (fixed cadence + track mode).
+- **Open / broken:** S1 reward WEIGHTS are analysis-seeded, need GPU tuning (failure-mode knobs in the design
+  doc); eval **flight-fraction metric** + **work-loop** tooling to build AFTER S1 (adapt `g1_run_probe.py`);
+  spring params (k, theta_engage) TBD from the work-loop; **calibrate `hop_height_target` from the S1 rollout**;
+  ≥3 seeds + regen sensitivity for the comparison. Nothing committed yet — GPU bootstrap clones `main`.
+- **Next:** train `g1_hop_s1` on the GPU (immers box), **gate** on a real both-feet-airborne window + steady
+  cadence + survival; then work-loop → matched baseline/spring energy comparison.
+
+---
+
 ## 2026-06-19 (cont. 3) — per-joint spring-kind selection implemented (the deferred joint-fit fix)
 - **Did:** Added `gravcomp.fit_spring_per_joint` (tries LINEAR + CONSTANT preload per joint, keeps the
   lower-energy one); `fit_linear_spring_per_joint` is now a thin linear-only wrapper. Wired `galaxea_lift.py`
