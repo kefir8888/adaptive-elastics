@@ -1,0 +1,28 @@
+# G1 BOUNDING, Stage R2 (full-range forward run) — warm-start from R1. Wider/faster
+# forward command, full termination, boosted flight reward. The driver loops this
+# (warm-started) to use the remaining budget pushing toward a faster running gait.
+name: g1_bound_r2
+env_name: G1JoystickBound
+seed: 1
+domain_randomization: true
+num_timesteps: 100000000
+env_overrides:
+  reward_config.tracking_sigma: 0.5
+  reward_config.max_foot_height: 0.22
+reward_scales:
+  termination: -100.0
+  action_rate: -0.01
+  dof_acc: -2.5e-7
+  torques: -2.0e-5
+  hop_flight: 1.5
+  feet_phase: 0.6
+command_forward:
+  vx_min: 0.5
+  vx_max: 2.5
+  vy_max: 0.15
+  vyaw_max: 0.3
+spring:
+  kind: none
+energy_reward_weight: 0.0
+energy_motor: g1
+ppo: {}
