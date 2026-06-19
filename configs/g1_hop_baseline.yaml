@@ -1,34 +1,29 @@
-# G1 continuous-HOPPING, BASELINE (no-spring) arm — the matched comparison partner for
-# g1_hop_spring.yaml. NOT the same as g1_hop_s1.yaml (which is elicit-only, with a softer
-# termination, a weaker torque penalty, no energy penalty, and a sampled cadence / maximize
-# height — none of which match the spring arm).
-#
-# Parity rule: this file must be BYTE-IDENTICAL to g1_hop_spring.yaml in every reward scale,
-# env_override, energy weight, cadence (hop_freq), and apex target (hop_height_target). The
-# ONLY difference is `spring.kind: none` here vs the spring block there. Both arms warm-start
-# from the SAME Stage-1 (g1_hop_s1) checkpoint and diverge only by the spring. Do NOT
-# warm-start the spring arm from this no-spring policy (it anchors the gait, hides co-adaptation).
-#
-# Set hop_height_target from the Stage-1 rollout (the mean apex reached in maximize mode), so
-# BOTH arms are asked for an apex they can actually reach — else the comparison degrades into
-# "which arm can reach 0.20 m" rather than "which is more efficient at the same apex".
+# G1 hopping, BASELINE (no-spring) arm of the matched energy comparison.
+# Warm-started from the S1 elicit checkpoint (--restore), fixed at S1's natural
+# operating point (apex 0.09 m, cadence 1.9 Hz) so this and the spring arm perform
+# the IDENTICAL mechanical task. BYTE-IDENTICAL to g1_hop_spring.yaml except the
+# spring block. Energy penalty OFF: the fixed apex+cadence already forces matched
+# output, so the spring's electrical saving is measured POST-HOC (the default Go1
+# weight -2.5e-4 is ~50 reward units here and would crush the hop). The `torques`
+# penalty (-1e-4, on motor torque, identical both arms) gives the torque-reduction
+# incentive the spring exploits.
 name: g1_hop_baseline
 env_name: G1JoystickHop
 seed: 1
 domain_randomization: true
-num_timesteps: 200000000
+num_timesteps: 120000000        # warm-started -> short adaptation (~24 min on H100)
 env_overrides:
   reward_config.tracking_sigma: 0.5
   reward_config.max_foot_height: 0.22
-  reward_config.hop_freq: 1.8            # FIXED cadence (Hz) — MUST match the spring arm
-  reward_config.hop_height_target: 0.20  # FIXED apex (m above standing) — MUST match; set from S1 rollout
+  reward_config.hop_freq: 1.9            # FIXED cadence (Hz) — S1's natural rate
+  reward_config.hop_height_target: 0.09  # FIXED apex (m above standing) — S1's natural apex
 reward_scales:
-  termination: -100.0                     # MUST match the spring arm (NOT -50 from s1)
+  termination: -100.0
   action_rate: -0.01
   dof_acc: -2.5e-7
-  torques: -1.0e-4                        # MUST match the spring arm (NOT -2.0e-5 from s1)
+  torques: -1.0e-4
 spring:
   kind: none                              # THE ONLY DIFFERENCE from g1_hop_spring.yaml
-energy_reward_weight: -2.5e-4             # ON in BOTH arms (calibrate to ~7-12% of mean reward)
+energy_reward_weight: 0.0                 # measure electrical energy POST-HOC (both arms)
 energy_motor: g1
 ppo: {}
