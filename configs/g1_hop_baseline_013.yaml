@@ -1,0 +1,29 @@
+# G1 hopping, BASELINE (no-spring) arm pinned at the SPRING's natural apex (~0.13 m)
+# for the OPTION-1 "match at the spring's natural height" comparison. Identical to
+# g1_hop_baseline.yaml except hop_height_target 0.09 -> 0.13 (the overshoot cap target
+# follows hop_height_target, so both the track reward and the apex cap now pin 0.13).
+# Warm-start from the existing 0.09 baseline (small target change -> fast adaptation).
+# Compared against the staged-ramp spring policy (also ~0.13) at matched apex+cadence.
+name: g1_hop_baseline_013
+env_name: G1JoystickHop
+seed: 1
+domain_randomization: true
+num_timesteps: 120000000
+env_overrides:
+  reward_config.tracking_sigma: 0.5
+  reward_config.max_foot_height: 0.22
+  reward_config.hop_freq: 1.9
+  reward_config.hop_height_target: 0.13   # match the spring's natural apex
+  reward_config.hop_height_var: 0.0009
+reward_scales:
+  termination: -100.0
+  action_rate: -0.01
+  dof_acc: -2.5e-7
+  torques: -1.0e-4
+  hop_height: 8.0
+  hop_overshoot: -30.0
+spring:
+  kind: none
+energy_reward_weight: 0.0
+energy_motor: g1
+ppo: {}
