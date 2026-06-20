@@ -1,66 +1,46 @@
-# NEXT SESSION — run the dog-running knee-spring experiment (handoff)
+# NEXT SESSION — actionable handoff (updated 2026-06-21)
 
-> **Fresh-agent entry point.** Read order: **this file → `README.md` → `docs/JOURNAL.md` →
-> `docs/dog_running_design.md`**. Everything is committed on `main` (current). The GPU box is OFF.
+**Paste the prompt below to start the next session.** Active campaign: re-elicit a
+**NON-SPINNING** G1 hopper via the clean curriculum (the fix for the pervasive yaw spin).
+Context: `CLAUDE.md` (UPDATE 2026-06-21), `docs/JOURNAL.md` (2026-06-21), `docs/hop_jump_report.md`.
 
-## Goal
-Test a parallel **KNEE (calf) spring for Go1 RUNNING energy** — the committed direction: **apply the same
-recipe that gave the walking −14 to −27 % (an almost-constant, per-leg adaptive preload) to the running gait.**
-The Go1 is the low-gear platform where springs pay. **Try the almost-constant spring first** (simplest to
-manufacture, no clutch). A stiffness spring or a clutch is used only if the baseline work-loop shows the
-constant preload leaves braking energy unrecovered — see the decision rule in `dog_running_design.md`.
+---
 
-## Infrastructure — immers.cloud, rubles (decided 2026-06-16)
-- **Why:** crypto-from-Russia is KYC-blocked everywhere (Vast → BitPay/Crypto.com; Copperx, Coinbase, etc. all
-  exclude Russia under US sanctions). immers takes **rubles, zero friction**. The crypto savings (~$5–10) aren't
-  worth it — this experiment is **~$18–20 total** (short Go1 runs), so cost is a non-issue.
-- **The USER provisions the box** (immers, ruble-funded): an **A100** (or H100), an **Ubuntu+CUDA** image,
-  **~50 GB disk**, and pastes the SSH (ip + port + key/password).
-- **The AGENT then drives it** and **DESTROYS it when done** — short runs; do NOT leave it billing (the last
-  campaign overran to ~13 h / ~4600 ₽; sync after every run, kill the box after).
-- **Bootstrap:** `curl -fsSL https://raw.githubusercontent.com/kefir8888/adaptive-elastics/main/scripts/gpu_box_setup.sh | bash`
-  (clones `main` — now current — installs uv, `uv sync --extra cuda`, verifies JAX-on-GPU).
+```
+We're continuing the parallel-elastic study (G1 humanoid, MuJoCo Playground + MJX + brax PPO on a
+rented immers.cloud GPU). Before anything, read in this order: CLAUDE.md, the top of docs/JOURNAL.md
+(2026-06-21), docs/hop_jump_report.md, and the README "⚠️ GPU-box safety" section.
 
-## The experiment (staged; full detail in `dog_running_design.md`)
-> **The warm-start walker checkpoint was lost with the deleted box → Stage 0 retrains a walker first.**
+GOAL this session: re-elicit a NON-SPINNING G1 hopper via the clean curriculum. Last campaign EVERY
+hopper spun ~+1.8–3.8 rad/s at zero command (a diagonal stance inherited from S1) — only bounding
+escaped (its forward command breaks the symmetry). This contaminated the whole hop lineage and caveats
+the −4.4% spring-energy result (the two arms spin at different rates). The fix is committed: a new
+leg_symmetry reward + a 4-stage curriculum (configs/g1_clean_s1..s4, scripts/run_clean_curriculum.sh).
 
-0. **Walker** — train a flat Go1 walker from scratch (`configs/go1_baseline_payload.yaml` with `payload_max_kg: 0`,
-   or the stock walker), stock rewards, ~200 M. Needed as the S1 warm-start source.
-1. **S1 trot** — warm-start the walker, `configs/go1_run_s1.yaml` (`command_config.a=[2.2,…]`). GATE: stable trot.
-2. **S2 run+flight** — warm-start S1, `configs/go1_run_s2.yaml` (`a=[3.2,…]`, light flight tweaks; NO termination
-   softening, NO energy zeroing — those killed the G1).
-   - **⚠ BUILD NEEDED:** a **flight-fraction metric** — min-over-gait of `(contact_L + contact_R == 0)`. GATE on a
-     real all-feet-off window before spending on the spring arms.
-   - If **no flight** emerges → it's a fast trot; report that honestly (it collapses to the walking win) and stop.
-3. **S3 work-loop** (local CPU, no GPU) — roll out S2, build the calf work-loop; **offset → constant preload**,
-   **braking lobe → stiffness**. Decide preload vs stiffness here.
-4. **S4 run + almost-constant per-leg adaptive preload — the spring we try first** (same recipe as walking;
-   simple to manufacture, no clutch). BUILT: `configs/go1_run_spring_preload.yaml` (preload_dr + the adaptive
-   controller in `src/pea/control.py`); set the preload size from the S3 work-loop.
-5. **S5 run + one-sided stiffness — DEFERRED** (run only if S3 shows the constant preload misses braking
-   recovery). BUILT but parked: the `one_sided_linear` kind in `src/pea/springs.py` +
-   `configs/go1_run_spring_onesided.yaml`; its stiffness/engage-angle values await S3. No clutch unless the data forces it.
-6. **S6 second seeds** for the headline arm(s) (match the 2-seed walking standard).
+PLAN: I provision a fresh box and paste the SSH (ip:port, ubuntu user). Then you:
+1. Bootstrap (scripts/gpu_box_setup.sh) → git reset --hard origin/main → verify
+   `uv run python -c "from pea.env import make_env"` (and git rev-parse HEAD, not ls).
+2. Launch the FAIL-SAFE watchdog FIRST — &&-chained so a killed sleep ABORTS the poweroff:
+   nohup bash -c 'sleep <budget> && { pkill -9 -f "[p]ea-train"; sudo poweroff; }' &
+   Then run scripts/run_clean_curriculum.sh detached at nice -19 ionice -c3. Watch stage 1's first eval.
+3. *** GATE STAGE 1 HARD ***: when clean_s1 finishes, measure mean yaw at zero command by PATCHING
+   sample_command to a constant (the raw rollout command-override is overwritten by the env's internal
+   re-sample). Require |yaw| < 0.15 rad/s, ~0 net drift, survival. If it still spins, STOP and debug —
+   do NOT build s2–s4 on a spinning base.
+4. If s1 passes, the driver chains s2 (height) → s3 (velocity) → s4 (support exchange). Validate s3
+   yaw-tracking with the sample_command patch; check s4 alternation via actual foot-floor gap vs the
+   contact flag. rsync each stage off-box BEFORE launching the next (backup-first).
 
-## Load extension (+2.5 / +5 kg) — after the no-load run works
-Retrain the no-spring + spring arms with **payload DR (0–5 kg)** + the adaptive per-leg preload; **eval at
-0 / 2.5 / 5 kg**. Keep **≤5 kg** (real Go1 limit — do NOT repeat the 30 kg sim-fantasy). Report CoT per load
-with per-seed spread + survival/stability.
+NON-NEGOTIABLE (real money lost + a self-poweroff happened last time): fail-safe &&-watchdog; NEVER kill
+a watchdog's `sleep` child (kill the parent); mkdir-lock launches (pgrep -f self-matches its own cmdline);
+rsync before destroy; SSH with -o IPQoS=none as `ubuntu` (flaky VPN).
 
-## Methodology discipline (README has the full list — follow it)
-1. Cheap feasibility probe before every full RL run. 2. One change per stage; warm-start + gate. 3. Sync after
-every run; **destroy the box after**. 4. Report **cost of transport (W ÷ m/s)**, per-seed spread, and the
-stability/survival cost — never raw watts. 5. Eval AT the trained condition; measure forward **speed**, not
-`tracking_lin_vel`. 6. Check physical realism before choosing ranges.
+WHEN DONE: rsync everything, render videos, then re-run the −4.4% energy comparison on the clean
+(non-spinning) base for a rigorous number.
+```
 
-## Key facts (don't re-derive)
-- **Gearing is the crux:** G1 (high gear, ohmic ~4 %) spring **NEGATIVE**; Go1 (low gear, ohmic ~54 %) **POSITIVE**.
-- **Walking result (validated, 3 seeds):** adaptive knee preload cuts **CoT −14 to −27 %** (seed 2 a weak −3 to
-  −8 % outlier), growing with load, with a high-load **stability cost** (survival drops ≥7.5 kg).
-- **Adaptive controller** = `src/pea/control.py` `AdaptivePreloadController` (per-leg 15 s-EMA → clipped-proportional
-  preload). The spring injects via `qfrc_applied`; motor torque (`qfrc_actuator`) **excludes** it → energy honest.
-- **Go1 speed knob = `command_config.a`** (NOT `lin_vel_x` — that's a G1 field). The Go1 env is **flight-permissive**
-  (no gait clock, soft termination −1) → **no env subclass needed** (unlike the G1).
-- **G1 running is parked** (long-shot; needs an env subclass + ideally reference-motion/AMP).
-- Results/eval tooling: `scripts/go1_capacity.py` (capacity + CoT sweep), `scripts/render_walk.py` (videos),
-  `scripts/g1_run_probe.py` (speed/gait probe — adapt for the flight-fraction metric).
+---
+
+Estimate: ~3.5 h box / ~$12–14 (happy path); +1 session if stage 1's anti-spin needs debugging.
+Deferred (after the clean base): energy-on retrain, ≥3 seeds, commanded/varied-height obs change.
+The dog-running / G1-running / gravity-comp tracks remain SUSPENDED (see their design docs).

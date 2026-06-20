@@ -120,6 +120,18 @@ by a per-phase foot-contact schedule) is proposed for the chapter after — `doc
 The bounding env `G1JoystickBound` (`src/pea/g1_bound_env.py`) is built + validated, but its autonomous
 run FAILED on infra (a busy-loop driver wedged the box — nothing trained; see the box-safety gotcha).
 (The dog-/G1-running and gravity-comp tracks stay as they were.)
+**UPDATE 2026-06-21 — hop-spring FAIR re-run DONE (+VE but spin-caveated); pervasive SPIN found; CLEAN curriculum built.**
+The apex-matched comparison (staged stiffness ramp `scripts/run_spring_ramp.sh` → stable k=106 spring, 3/3 survival)
+gives the spring **−4.4 % hop electrical energy at matched 0.13 m apex** (fairness gate FAIR) — the first clean POSITIVE
+Part-2 G1 result, gear-INDEPENDENT (ohmic ~1.5 %; energy ~98.5 % mechanical, braking ~14.5 % = regen ceiling, ~0
+recovered no-regen). Write-up: **`docs/hop_jump_report.md`**. BUT every hopper this campaign **SPINS** ~+1.8–3.8 rad/s
+at zero command (a diagonal stance inherited from S1); **only bounding doesn't** (its forward command breaks the
+symmetry) — so the −4.4 % is caveated (the two arms spin at different rates) and the deferred leg-symmetry was the
+ROOT cause, not cosmetic. Directional jumps also spin (NEGATIVE — trains by reward but ignores the command).
+**ACTIVE direction now: re-elicit a NON-SPINNING hopper from scratch** — new `leg_symmetry` reward (`g1_hop_env.py`,
+body-frame foot symmetry) + `configs/g1_clean_s1..s4` + `scripts/run_clean_curriculum.sh` (s1 clean hop → s2 height
+→ s3 velocity → s4 support-exchange + swing-foot clearance; **GATE s1 on |yaw|<0.15** before s2-s4). Smoke-validated,
+untrained (needs a box); re-run the −4.4 % comparison on the clean base.
 
 ## Session ritual
 Project memory lives on disk, not in any single conversation. Work in short, task-scoped

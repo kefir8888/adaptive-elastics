@@ -8,6 +8,34 @@ happened, what's open/broken, and the single next step.
 
 ---
 
+## 2026-06-21 — pervasive yaw SPIN found (all hoppers); clean non-spinning curriculum built
+- **Did:** Tested "is everything spinning?" — measured mean yaw @ zero command for all 11
+  controllers from this campaign (local). Built the CLEAN curriculum to fix it: new
+  `leg_symmetry` reward in `g1_hop_env.py` (body-frame foot fore-aft + lateral symmetry) +
+  4 configs (`g1_clean_s1..s4`) + `scripts/run_clean_curriculum.sh`. Smoke-validated; no GPU
+  run (box destroyed after the autonomous session).
+- **Found:** the spin is PERVASIVE, not just directional. EVERY hopper spins ~+1.8–3.8 rad/s
+  at zero command — it ORIGINATES in S1 (+1.8, a diagonal/asymmetric stance) and every
+  warm-started descendant inherited + amplified it. ONLY bounding doesn't (−0.1; its forward
+  command breaks the symmetry). So the deferred leg-symmetry was the ROOT CAUSE, not cosmetic.
+- **Caveat it creates:** the −4.4 % hop-spring energy result is now caveated — the two arms spin
+  at DIFFERENT rates (baseline +2.6 vs spring +3.4), so the "matched in-place hop" was two
+  differently-pirouetting hops; a clean (non-spinning) re-run is needed to call it rigorous.
+- **Decided (curriculum, with user):** re-elicit FROM SCRATCH with strong heading hold
+  (tracking_ang/lin_vel 0.5→2.0) + leg_symmetry, then chain s1 clean hop → s2 height → s3
+  velocity tracking → s4 support exchange (+ swing-foot clearance, the leg-grazing fix). GATE s1
+  HARD on |yaw|<0.15 before downstream. Est. ~3.5 h box / ~$12–14 happy path.
+- **Result-numbers (spin, rad/s @0 cmd):** S1 +1.8, base@0.09 +2.9, spring-inject +3.0, DR +3.5,
+  ramp k40/75/106 +3.8/+3.5/+3.4, base@0.13 +2.6, dir d0/d1 +2.8/+2.4, **bounding −0.1**.
+  Energy result (positive, caveated): spring −4.4 % no-regen / −4.5 % regen at matched 0.13 m apex.
+- **Open/broken:** curriculum UNTRAINED; s1 anti-spin unproven (the make-or-break gate); s2 height
+  is single-pinned-apex (commanded/varied height needs an obs change); s3 yaw must be validated
+  with the `sample_command` patch (raw rollout override is overwritten by the env's re-sample);
+  s4 alternation needs a foot-floor-gap vs contact-flag check.
+- **Next:** provision a box → `scripts/run_clean_curriculum.sh` → GATE stage 1 on |yaw|<0.15.
+
+---
+
 ## 2026-06-20 (cont. 2) — Part-2 jump program: hop-spring +VE, directional −VE, bounding partial (autonomous run)
 - **Did:** Autonomous multi-hour run on a rented immers H100. Item 1: the FAIR apex-matched hop-spring
   energy comparison (the open question). Item 2: directional-jump curriculum. Item 3: alternating-foot
