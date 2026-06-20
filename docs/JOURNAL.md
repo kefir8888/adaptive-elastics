@@ -8,6 +8,35 @@ happened, what's open/broken, and the single next step.
 
 ---
 
+## 2026-06-21 (cont.) — clean s1 TRAINED: leg_symmetry SOLVES the spin (yaw 3.8→0.016); gate failed on DRIFT only
+- **Did:** Pre-flight-validated the clean curriculum (4 configs smoke-pass; adversarial workflow review),
+  added an **automated s1 yaw gate** to the driver + the `scripts/hop_yaw_gate.py` probe (patches
+  `sample_command` to a constant; exits non-zero on fail), restored `leg_symmetry -2.0` in s3 (was -1.0,
+  a spin-risk), pushed to origin/main (`274048b`). Provisioned an immers H100, ran the curriculum.
+- **RESULT — the spin is SOLVED.** Clean s1 (leg_symmetry -2.0 + strong heading hold, from scratch, 200M)
+  trained to **eval reward ~80** (vigorous two-footed hop), **3/3 survival**. Yaw @ zero command:
+  **mean 0.016 rad/s (worst seed 0.033)** — down from the prior campaign's **+1.8–3.8 rad/s**. The
+  `leg_symmetry` term shrank monotonically in training (-28→-12). The diagonal-stance spin — the root
+  cause that contaminated the whole hop lineage — is **fixed**, exactly as designed.
+- **Gate verdict: FAILED — but on DRIFT, not spin.** The yaw gate passed easily (0.016 ≪ 0.15); it failed
+  only the secondary criterion **net drift 0.16 m/s** (>0.1 threshold) — the hopper stays pointed straight
+  but translates ~1.9 m over 12 s. The **automated gate did its job**: the driver aborted before s2–s4
+  (no contaminated downstream), saving ~2 h / ~$10 of box time. s1 rsync'd locally (policy_params +
+  checkpoints + metrics), box powered off + confirmed down (~1 h 24 m billed, ~$8).
+- **Interpretation:** yaw was the real contaminant (it made the "matched in-place hop" two differently-
+  pirouetting hops); **drift is benign for the spring-energy comparison** (both arms drift equally; s3's
+  velocity tracking trains it out). Same mechanism as the old yaw: tracking is a *positive bonus* that's
+  flat near zero (a 0.16 m/s error barely dents `exp(-0.16²/0.3)≈0.92`), so it doesn't actively punish
+  small drift. The base is essentially good; the gate's drift threshold was slightly conservative.
+- **Open/next:** decide (next session): **(a) RECOMMENDED** — treat the spin as solved, relax the gate to
+  yaw+survival (drift a soft ~0.25 m/s diagnostic), and continue s2→s4 **warm-started from THIS s1**
+  (saved at `outputs/clean_curriculum/2026-06-21_g1_clean_s1_clean_s1/`); **(b)** tighten s1's in-place
+  hold (tracking_sigma 0.3→0.2, or an explicit horizontal-velocity penalty mirroring leg_symmetry) and
+  re-elicit. Then the −4.4 % spring-energy re-run on the clean base. **Remember to DELETE the immers
+  instance** (powered off ≠ deleted; storage may still bill).
+
+---
+
 ## 2026-06-21 — pervasive yaw SPIN found (all hoppers); clean non-spinning curriculum built
 - **Did:** Tested "is everything spinning?" — measured mean yaw @ zero command for all 11
   controllers from this campaign (local). Built the CLEAN curriculum to fix it: new

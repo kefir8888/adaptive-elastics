@@ -128,10 +128,17 @@ recovered no-regen). Write-up: **`docs/hop_jump_report.md`**. BUT every hopper t
 at zero command (a diagonal stance inherited from S1); **only bounding doesn't** (its forward command breaks the
 symmetry) — so the −4.4 % is caveated (the two arms spin at different rates) and the deferred leg-symmetry was the
 ROOT cause, not cosmetic. Directional jumps also spin (NEGATIVE — trains by reward but ignores the command).
-**ACTIVE direction now: re-elicit a NON-SPINNING hopper from scratch** — new `leg_symmetry` reward (`g1_hop_env.py`,
-body-frame foot symmetry) + `configs/g1_clean_s1..s4` + `scripts/run_clean_curriculum.sh` (s1 clean hop → s2 height
-→ s3 velocity → s4 support-exchange + swing-foot clearance; **GATE s1 on |yaw|<0.15** before s2-s4). Smoke-validated,
-untrained (needs a box); re-run the −4.4 % comparison on the clean base.
+**UPDATE 2026-06-21 (cont.) — the SPIN is SOLVED.** Clean s1 (new `leg_symmetry -2.0` + strong heading hold,
+from scratch, 200M on an immers H100) trained to reward ~80 (vigorous two-footed hop), 3/3 survival, and yaw @
+zero command dropped to **0.016 rad/s** (from +1.8–3.8 across the whole prior lineage) — the diagonal-stance spin
+that contaminated the hop lineage is FIXED. The pre-flight-added **automated s1 yaw gate** (`scripts/hop_yaw_gate.py`,
+wired into the driver) FAILED only on a SECONDARY **0.16 m/s drift** (not spin), so the driver correctly aborted
+before s2–s4 (saving ~2 h box time). s1 saved at `outputs/clean_curriculum/2026-06-21_g1_clean_s1_clean_s1/`
+(+ `clean_s1_hop.mp4`). **Drift is benign for the in-place energy comparison** (both arms drift equally; s3 trains
+it out) — so next session either RELAX the gate to yaw+survival and continue s2→s4 warm-started from this saved s1,
+or add a light anti-drift to s1 and re-elicit (`docs/NEXT_SESSION.md`). Then the −4.4 % spring-energy re-run on the
+clean base. **ACTIVE-direction infra:** `leg_symmetry` reward (`g1_hop_env.py`, body-frame foot symmetry) +
+`configs/g1_clean_s1..s4` + `scripts/run_clean_curriculum.sh` (auto-gates s1 on |yaw|<0.15).
 
 ## Session ritual
 Project memory lives on disk, not in any single conversation. Work in short, task-scoped
