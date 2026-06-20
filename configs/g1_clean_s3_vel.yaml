@@ -1,0 +1,36 @@
+# CLEAN-CURRICULUM Stage 3 — add VELOCITY tracking (lin x/y + yaw), moderate. Warm-start
+# from stage 2. This is the directional-jump task that FAILED before (the policy spun and
+# ignored the command) — but now on a CLEAN, non-spinning base (stage 1/2) + leg_symmetry,
+# so the command should actually be tracked. The command is already in the observation;
+# the prior failure was the contaminated (spinning) base, not a missing command.
+# Moderate bands (no crazy gymnastics): lin +/-0.4 m/s, yaw +/-0.5 rad/s.
+# GATE: tracks lin AND yaw (validate with the sample_command patch, not the raw rollout
+# override — the env re-samples the command internally), survival, no residual spin at 0 cmd.
+name: g1_clean_s3_vel
+env_name: G1JoystickHop
+seed: 1
+domain_randomization: true
+num_timesteps: 100000000
+env_overrides:
+  reward_config.tracking_sigma: 0.3
+  reward_config.max_foot_height: 0.22
+  reward_config.hop_height_target: 0.11     # keep the stage-2 apex
+  reward_config.hop_height_var: 0.0016
+  lin_vel_x: [-0.4, 0.4]                     # moderate commanded velocity
+  lin_vel_y: [-0.3, 0.3]
+  ang_vel_yaw: [-0.5, 0.5]
+reward_scales:
+  termination: -100.0
+  action_rate: -0.01
+  dof_acc: -2.5e-7
+  torques: -2.0e-5
+  tracking_lin_vel: 2.0                      # strong tracking = controllability
+  tracking_ang_vel: 2.0
+  leg_symmetry: -1.0                         # lighter now (a moving robot is less symmetric)
+  hop_height: 8.0
+  hop_overshoot: -20.0
+spring:
+  kind: none
+energy_reward_weight: 0.0
+energy_motor: g1
+ppo: {}

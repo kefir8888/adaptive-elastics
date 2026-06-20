@@ -1,0 +1,32 @@
+# CLEAN-CURRICULUM Stage 2 — add APEX (height) control. Warm-start from stage 1.
+# Pins the hop to a target apex (TRACK mode + overshoot cap), carrying the stage-1
+# anti-spin (strong heading hold + leg_symmetry). This establishes height control on a
+# clean non-spinning base. NOTE: this pins ONE apex (0.11 m); a height-CONDITIONED
+# hopper (commanded, varied apex) is a refinement that needs a small obs change (sample
+# hop_height_target per episode + expose it to the policy) — deferred.
+# GATE: tracks apex +/-2 cm, STILL no spin (|yaw| < 0.15), survival.
+name: g1_clean_s2_height
+env_name: G1JoystickHop
+seed: 1
+domain_randomization: true
+num_timesteps: 100000000
+env_overrides:
+  reward_config.tracking_sigma: 0.3
+  reward_config.max_foot_height: 0.22
+  reward_config.hop_height_target: 0.11    # the pinned apex (m above standing)
+  reward_config.hop_height_var: 0.0016     # sigma ~4 cm
+reward_scales:
+  termination: -100.0
+  action_rate: -0.01
+  dof_acc: -2.5e-7
+  torques: -2.0e-5
+  tracking_lin_vel: 2.0                     # carry the anti-spin
+  tracking_ang_vel: 2.0
+  leg_symmetry: -2.0
+  hop_height: 8.0                           # reward matching the pinned apex
+  hop_overshoot: -20.0                      # cap above target
+spring:
+  kind: none
+energy_reward_weight: 0.0
+energy_motor: g1
+ppo: {}

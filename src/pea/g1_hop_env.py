@@ -85,6 +85,7 @@ import jax
 import jax.numpy as jp
 from ml_collections import config_dict
 
+import mujoco
 from mujoco import mjx
 
 from mujoco_playground._src import locomotion
@@ -149,6 +150,10 @@ FEET_AIR_TIME_WEIGHT_HOP = 3.0       # boost (was 2.0): reward longer flight
 # hop-direction "joystick" will replace this soft hold later.
 TRACKING_LIN_VEL_WEIGHT_HOP = 0.5    # gentle stay-local nudge (walk env: 1.0)
 TRACKING_ANG_VEL_WEIGHT_HOP = 0.5    # gentle no-spin nudge (walk env: 0.75)
+# Leg-symmetry penalty: punish a DIAGONAL (asymmetric) stance — the ROOT CAUSE of the
+# inherited yaw spin (every hopper trained 2026-06-20 spun ~+2-3.8 rad/s except bounding).
+# 0 by default; set negative (a penalty) in the clean-curriculum configs (stage 1+).
+LEG_SYMMETRY_WEIGHT = 0.0
 
 
 def default_config() -> config_dict.ConfigDict:
@@ -171,6 +176,7 @@ def default_config() -> config_dict.ConfigDict:
     # drift hard. Identical across all hop arms (set here, not per-config) for parity.
     s.tracking_lin_vel = TRACKING_LIN_VEL_WEIGHT_HOP
     s.tracking_ang_vel = TRACKING_ANG_VEL_WEIGHT_HOP
+    s.leg_symmetry = LEG_SYMMETRY_WEIGHT
     # Register the hop terms so the env builds their metrics keys and they show up
     # in the reward breakdown. All are rewards (+); hop_rhythm is SIGNED ([-1, 1]).
     s.hop_rhythm = HOP_RHYTHM_WEIGHT
@@ -312,6 +318,21 @@ class G1JoystickHop(g1_joystick.Joystick):
         # policy to leave the ground first.
         return (1.0 - contact[0]) * (1.0 - contact[1])
 
+    def _reward_leg_symmetry(self, data: "mjx.Data") -> jax.Array:
+        # Penalize a DIAGONAL / asymmetric stance — the ROOT CAUSE of the inherited yaw
+        # spin (2026-06-21). In the PELVIS BODY frame the two feet should be symmetric:
+        # same fore-aft (x) and mirror-image lateral (y_L = -y_R). A diagonal splay (one
+        # foot fore, one aft) breaks the fore-aft term and yaws the body. Sign-free (body
+        # frame; no joint mirror map). mj_name2id on the static model is constant-folded
+        # under jit (zero runtime cost).
+        pid = mujoco.mj_name2id(self.mj_model, mujoco.mjtObj.mjOBJ_BODY, "pelvis")
+        feet = data.site_xpos[self._feet_site_id]       # (2,3) world: [left, right]
+        rel = feet - data.xpos[pid]                      # relative to pelvis (world)
+        body = rel @ data.xmat[pid].reshape(3, 3)        # -> pelvis body frame (rel @ R = R^T·rel)
+        fore_aft_asym = jp.abs(body[0, 0] - body[1, 0])  # feet at same fore-aft -> 0
+        lateral_asym = jp.abs(body[0, 1] + body[1, 1])   # mirror lateral (L=+, R=−) -> sum 0
+        return fore_aft_asym + lateral_asym  # POSITIVE cost (metres of asymmetry); use a NEGATIVE scale
+
     def _get_reward(
         self,
         data: "mjx.Data",
@@ -336,6 +357,7 @@ class G1JoystickHop(g1_joystick.Joystick):
         rewards["hop_sync"] = self._reward_hop_sync(contact)
         rewards["hop_flight"] = self._reward_hop_flight(contact)
         rewards["hop_overshoot"] = self._reward_hop_overshoot(base_height)
+        rewards["leg_symmetry"] = self._reward_leg_symmetry(data)
         return rewards
 
 

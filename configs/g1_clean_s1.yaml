@@ -1,0 +1,28 @@
+# CLEAN-CURRICULUM Stage 1 — a NON-SPINNING, non-drifting in-place hop, FROM SCRATCH.
+# Fixes the root cause found 2026-06-21: every hopper warm-started from S1 inherited a
+# +2-3.8 rad/s yaw SPIN (a diagonal/asymmetric stance). So we re-elicit from scratch with
+# (a) STRONG heading + position hold (tracking_ang/lin_vel boosted 0.5 -> 2.0) and (b) the
+# new leg_symmetry penalty (punishes the diagonal stance directly). Height MAXIMIZE +
+# sampled cadence (env defaults). GATE (hard) before building on this: |yaw| < 0.15 rad/s
+# at zero command, ~0 net drift, symmetric stance, survival.
+name: g1_clean_s1
+env_name: G1JoystickHop
+seed: 1
+domain_randomization: true
+num_timesteps: 200000000
+env_overrides:
+  reward_config.tracking_sigma: 0.3       # tighter -> precise position/heading hold
+  reward_config.max_foot_height: 0.22
+reward_scales:
+  termination: -50.0
+  action_rate: -0.01
+  dof_acc: -2.5e-7
+  torques: -2.0e-5
+  tracking_lin_vel: 2.0                    # STRONG stay-in-place (was 0.5)
+  tracking_ang_vel: 2.0                    # STRONG no-spin / hold heading (was 0.5)
+  leg_symmetry: -2.0                       # NEW: penalize the diagonal stance (root cause of spin)
+spring:
+  kind: none
+energy_reward_weight: 0.0
+energy_motor: g1
+ppo: {}
