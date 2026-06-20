@@ -32,6 +32,9 @@ if [ -z "$HOPPER" ] || [ ! -d "$HOPPER/checkpoints" ]; then
   stage configs/g1_hop_s1.yaml "" g1_hop_s1 || exit 1; HOPPER=$STAGE_DIR
 fi
 say "hopper=$HOPPER"
-stage configs/g1_hop_baseline.yaml "$HOPPER" fair || exit 1
-stage configs/g1_hop_spring.yaml   "$HOPPER" fair || exit 1
-touch "$HOME/HOP_COMPARE_DONE"; say "HOP COMPARE DONE"
+stage configs/g1_hop_baseline.yaml "$HOPPER" fair_base  || exit 1; BASE_DIR=$STAGE_DIR
+stage configs/g1_hop_spring.yaml   "$HOPPER" fair_spring || exit 1; SPR_DIR=$STAGE_DIR
+say "baseline=$BASE_DIR"; say "spring=$SPR_DIR"
+# Record BOTH run dirs (distinct tags, no ambiguous `latest fair`) for the manual energy compare:
+#   uv run python scripts/hop_energy_compare.py <baseline> <spring>
+printf '%s\n%s\n' "$BASE_DIR" "$SPR_DIR" > "$HOME/HOP_COMPARE_DONE"; say "HOP COMPARE DONE"
