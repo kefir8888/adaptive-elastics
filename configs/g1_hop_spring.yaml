@@ -20,11 +20,14 @@ env_overrides:
   reward_config.max_foot_height: 0.22
   reward_config.hop_freq: 1.9
   reward_config.hop_height_target: 0.09
+  reward_config.hop_height_var: 0.0009   # MUST match the baseline arm (pinned apex)
 reward_scales:
   termination: -100.0
   action_rate: -0.01
   dof_acc: -2.5e-7
   torques: -1.0e-4
+  hop_height: 8.0                        # MUST match the baseline arm
+  hop_overshoot: -30.0                   # MUST match the baseline arm — caps the apex for fairness
 spring:
   kind: one_sided_linear                  # pogo: engages in flexion, returns at push-off
   joint: knee                             # the knee carries 8x the ankle's recoverable braking

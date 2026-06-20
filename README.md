@@ -9,6 +9,34 @@ cost of transport, not mechanical work. Full design in `CLAUDE.md`.
 > **▶ Resuming / new session?** Start with **`docs/NEXT_SESSION.md`** — the actionable handoff plan for the
 > next campaign (the dog-running knee-spring experiment on immers.cloud).
 
+## ⚠️ VERY IMPORTANT — GPU-box safety (real money is at stake)
+
+On 2026-06-20 a buggy box-side curriculum driver spun a *failing* training stage in a tight loop. The constant
+heavy re-imports **starved `sshd`** and **wedged the box**: TCP/ping stayed up but every SSH handshake timed out,
+so it could not be killed over SSH while it **kept billing** for hours. The instance had to be destroyed from the
+immers console. Never let this happen again — follow ALL of these for any box-side loop or unattended run:
+
+1. **Run every training launcher at LOW priority: `nice -n 19 ionice -c3 <cmd>`.** `sshd` then always preempts it,
+   so the box **stays reachable for a manual kill even if a loop runs wild.** This single rule prevents the deadlock.
+2. **A box-side loop must be physically unable to busy-spin.** Capture the training command's REAL exit code into a
+   variable *immediately* (a shell function returns its LAST command's status — do **not** end the function with
+   `echo`/`log`, or `|| break` becomes dead code, which is exactly the bug that wedged the box); require a minimum
+   stage duration (a real RL stage takes minutes — under ~120 s means it failed → stop); verify the run dir /
+   checkpoint was actually created; cap total iterations; and **`sleep 60` on any failure** so a crash-loop can
+   never thrash even if a guard is wrong.
+3. **Verify the code is on the box BEFORE launching.** `cd ~/adaptive-elastics && git fetch && git reset --hard
+   origin/main`, then assert it imports: `uv run python -c "from pea.env import make_env"`. **Never trust a
+   flaky-link file transfer** — it can fail silently; verify with a check that cannot false-match (a `git rev-parse
+   HEAD` comparison, not an `ls | wc -l`).
+4. **Watch the first evaluation before walking away.** Confirm stage 1 wrote ≥1 row to `metrics.jsonl` before
+   letting an unattended multi-hour run continue. Five minutes of watching catches an instant-crash loop.
+5. **Have an out-of-band kill switch BEFORE any long autonomous run.** Launch an independent watchdog that does not
+   depend on the driver: `nohup bash -c 'sleep <budget_seconds>; pkill -9 -f <driver>; pkill -9 -f pea-train; sudo
+   poweroff' &`. Ideally also obtain an immers API/destroy method so SSH is not the single point of control.
+6. **Use portable tooling and test the recovery path.** macOS has **no `timeout`** command (use `gtimeout` or
+   ssh's own `-o ConnectTimeout`); a broken recovery probe silently masks the box's true state. The immers VPN exit
+   is flaky (SSH banner/MTU stalls) — always use `-o IPQoS=none` and log in as **`ubuntu`** (not `root`).
+
 ## Headline finding: gearing is the crux
 
 | Platform | Gear ratio | Ohmic share of budget | Parallel-spring verdict |

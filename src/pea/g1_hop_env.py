@@ -178,6 +178,7 @@ def default_config() -> config_dict.ConfigDict:
     s.hop_height = HOP_HEIGHT_WEIGHT
     s.hop_sync = HOP_SYNC_WEIGHT
     s.hop_flight = HOP_FLIGHT_WEIGHT
+    s.hop_overshoot = 0.0   # apex-cap penalty; OFF by default, negative in fair-compare configs
     # The base contact-force cap is 500 N, calibrated for a WALKING foot-strike; a
     # hop landing peaks far higher, so at 500 N the contact_force cost would crush
     # any real hop. Raise the cap; impact IS the hop task (and the very thing the
@@ -186,6 +187,10 @@ def default_config() -> config_dict.ConfigDict:
     # Apex-tracking target (metres above standing). 0 -> MAXIMIZE the hop height;
     # > 0 -> reward matching this apex (the matched-task mode for the comparison).
     cfg.reward_config.hop_height_target = 0.0
+    # Tracking width (sigma^2, m^2) for the apex when hop_height_target is set; the
+    # FAIR-comparison configs tighten this so the apex is pinned, not loosely tracked.
+    cfg.reward_config.hop_height_var = HOP_HEIGHT_VAR
+    # `hop_overshoot` (registered below) caps the apex at the target; default weight 0.
     # Hop cadence. 0 -> sample U(HOP_FREQ_MIN, HOP_FREQ_MAX) per episode (training);
     # > 0 -> FIX the clock at this frequency (Hz) so the no-spring and spring arms
     # hop at the SAME cadence for the matched-energy comparison.
@@ -274,12 +279,25 @@ class G1JoystickHop(g1_joystick.Joystick):
         both_airborne = (1.0 - contact[0]) * (1.0 - contact[1])
         h_ref = self._init_q[2]
         target = float(self._config.reward_config.hop_height_target)
+        var = float(self._config.reward_config.hop_height_var)  # tighten for a pinned apex
         gain = base_height - h_ref
         if target > 0.0:
-            shaped = jp.exp(-jp.square(gain - target) / HOP_HEIGHT_VAR)
+            shaped = jp.exp(-jp.square(gain - target) / var)
         else:
             shaped = jp.clip(gain, 0.0, HOP_HEIGHT_CAP)
         return both_airborne * shaped
+
+    def _reward_hop_overshoot(self, base_height: jax.Array) -> jax.Array:
+        # Metres the pelvis rises ABOVE the commanded apex. With a negative scale this
+        # CAPS the hop height at the target, so a spring (or any extra push capacity)
+        # cannot be spent on hopping higher — it is forced into the matched task. This
+        # is the height-control knob for a FAIR spring-vs-no-spring energy comparison.
+        # Off (returns 0) in maximize mode (no commanded apex).
+        target = float(self._config.reward_config.hop_height_target)
+        if target <= 0.0:
+            return jp.array(0.0)
+        h_ref = self._init_q[2]
+        return jp.maximum((base_height - h_ref) - target, 0.0)
 
     def _reward_hop_sync(self, contact: jax.Array) -> jax.Array:
         # Reward the two feet being in the SAME contact state (both up / both down):
@@ -317,6 +335,7 @@ class G1JoystickHop(g1_joystick.Joystick):
         rewards["hop_height"] = self._reward_hop_height(contact, base_height)
         rewards["hop_sync"] = self._reward_hop_sync(contact)
         rewards["hop_flight"] = self._reward_hop_flight(contact)
+        rewards["hop_overshoot"] = self._reward_hop_overshoot(base_height)
         return rewards
 
 

@@ -82,5 +82,11 @@ row("E/hop no-regen (J)", base["E_noregen_per_hop"], spr["E_noregen_per_hop"])
 row("E/hop regen (J)", base["E_regen_per_hop"], spr["E_regen_per_hop"])
 row("mean power no-regen (W)", base["mean_power_noregen"], spr["mean_power_noregen"])
 print(f"\nohmic share: baseline {base['ohmic_share']*100:.1f}%  spring {spr['ohmic_share']*100:.1f}%")
-print("NOTE: apex+cadence must match for the energy delta to be valid; if they differ, "
-      "the comparison is confounded (renormalize or retrain).")
+
+# Explicit fairness gate: the apex MUST match (cadence is physics-fixed by hop_freq).
+APEX_TOL = 0.015  # metres
+d_apex = abs(spr["apex"] - base["apex"])
+d_cad = abs(spr["cadence"] - base["cadence"])
+fair = d_apex <= APEX_TOL and d_cad <= 0.15
+print(f"\nFAIRNESS GATE: apex match Δ={d_apex*100:.1f} cm (tol {APEX_TOL*100:.0f}), "
+      f"cadence Δ={d_cad:.2f} Hz -> {'FAIR — energy delta is valid' if fair else 'CONFOUNDED — apex/cadence differ, energy delta NOT valid (renormalize or re-train with the apex cap)'}")

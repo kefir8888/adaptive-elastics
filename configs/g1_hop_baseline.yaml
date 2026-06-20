@@ -17,11 +17,14 @@ env_overrides:
   reward_config.max_foot_height: 0.22
   reward_config.hop_freq: 1.9            # FIXED cadence (Hz) — S1's natural rate
   reward_config.hop_height_target: 0.09  # FIXED apex (m above standing) — S1's natural apex
+  reward_config.hop_height_var: 0.0009   # TIGHT apex tracking (sigma 3cm) — pin, not loosely track
 reward_scales:
   termination: -100.0
   action_rate: -0.01
   dof_acc: -2.5e-7
   torques: -1.0e-4
+  hop_height: 8.0                        # boosted so the pinned apex dominates
+  hop_overshoot: -30.0                   # CAP the apex at target — the height-control knob (fair compare)
 spring:
   kind: none                              # THE ONLY DIFFERENCE from g1_hop_spring.yaml
 energy_reward_weight: 0.0                 # measure electrical energy POST-HOC (both arms)
