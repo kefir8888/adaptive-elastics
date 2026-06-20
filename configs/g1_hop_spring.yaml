@@ -33,7 +33,15 @@ spring:
   joint: knee                             # the knee carries 8x the ankle's recoverable braking
   theta_engage: 0.827                     # fitted: flexion onset of the loaded branch
   engage_sign: 1.0                        # fitted: engages as the knee flexes past theta_engage
-  k: 106.1                                # fitted: N*m/rad (offloads the stance/landing knee load)
+  k: 106.1                                # fitted N*m/rad; the FIXED strength used at EVAL (k_dr off)
+  # GRADUAL RAMP-IN (2026-06-20 re-run): the full-strength k=106 injected onto the no-spring
+  # warm-start destabilized the gait (fell 2/3 deterministic eval seeds, overshot apex). Randomize
+  # k ~ U(0, 106) per episode so the policy adapts to the spring's energy across the whole range
+  # (the familiar k~=0 anchors it, high k teaches regulation). For the energy comparison, eval at
+  # the FIXED k=106 (k_dr off) — the policy has seen full strength in-distribution.
+  k_dr: true
+  k_dr_min: 0.0
+  k_dr_max: 106.1
 energy_reward_weight: 0.0
 energy_motor: g1
 ppo: {}
