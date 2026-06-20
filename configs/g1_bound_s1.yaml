@@ -1,0 +1,31 @@
+# G1 alternating-foot BOUNDING (the future RUNNING baseline), stage 1.
+# Warm-start from the in-place hopper (S1): the env keeps the proven flight machinery
+# but switches to an ANTI-PHASE clock ([0, pi], feet alternate) + re-enabled feet_phase,
+# and is driven FORWARD by command_forward. Per the 2026-06-20 directive: today just get
+# a STABLE alternating-foot gait with a flight phase — do NOT push speed (high-speed
+# "1 0 0 1" running comes much later). LOW forward command 0.5-1.2 m/s, no lateral/yaw.
+# GATE before declaring success: a real alternating flight phase (both feet airborne
+# between alternating footfalls), forward motion tracking the command, and survival.
+name: g1_bound_s1
+env_name: G1JoystickBound
+seed: 1
+domain_randomization: true
+num_timesteps: 150000000
+command_forward:
+  vx_min: 0.5
+  vx_max: 1.2
+  vy_max: 0.0
+  vyaw_max: 0.0
+env_overrides:
+  reward_config.tracking_sigma: 0.4
+  reward_config.max_foot_height: 0.22
+reward_scales:
+  termination: -50.0                      # softened for stage 1 (avoid never-leaving-ground)
+  action_rate: -0.01
+  dof_acc: -2.5e-7
+  torques: -2.0e-5
+spring:
+  kind: none
+energy_reward_weight: 0.0
+energy_motor: g1
+ppo: {}
