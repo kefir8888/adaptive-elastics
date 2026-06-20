@@ -8,6 +8,39 @@ happened, what's open/broken, and the single next step.
 
 ---
 
+## 2026-06-20 (cont. 2) — Part-2 jump program: hop-spring +VE, directional −VE, bounding partial (autonomous run)
+- **Did:** Autonomous multi-hour run on a rented immers H100. Item 1: the FAIR apex-matched hop-spring
+  energy comparison (the open question). Item 2: directional-jump curriculum. Item 3: alternating-foot
+  bounding. Built directional infra (`g1_hop_dir_d0/d1`, config-only on `G1JoystickHop`), bounding
+  (`g1_bound_s1` on `G1JoystickBound`), and the `--spring_k` staged ramp + `run_spring_ramp.sh`. Report:
+  **`docs/hop_jump_report.md`**. All 12 run dirs + videos backed up to `outputs/hop_runs/` & `outputs/`.
+- **Item 1 — POSITIVE (clean).** The staged stiffness ramp (k 40→75→106, warm-start-chained) gave a STABLE
+  k=106-tuned spring policy (**3/3 survival**, apex ~0.129) where the full-strength inject (1/3) and the
+  per-episode k_dr ramp (2/3) failed. At MATCHED apex 0.13 m + cadence 1.9 Hz (gate **FAIR**, Δapex 0.3 cm):
+  the pogo knee spring cuts hop energy **−4.4 % (no-regen) / −4.5 % (regen)**. Modest, gear-independent
+  (ohmic ~1.5 %; energy is ~98.5 % mechanical work; braking ~14.5 % = regen ceiling, ~0 recovered no-regen).
+  First clean positive Part-2 result on the stock G1.
+- **Item 2 — NEGATIVE.** Directional hopper TRAINED (reward ~70, large tracking-reward components) but the
+  DETERMINISTIC policy SPINS ~2.7 rad/s and IGNORES the command (verified the command reaches the obs;
+  yaw− cmd still → +2.7). Reward misled; rigorous validation caught it. Root cause: the inherited
+  asymmetric/diagonal stance (the DEFERRED leg-symmetry) → constant yaw spin. Fix: add the symmetry reward
+  and/or require a minimum commanded speed.
+- **Item 3 — PARTIAL.** Bounding (`G1JoystickBound`, forward command) gave a STABLE, STRAIGHT, forward-moving
+  (0.55 m/s @ cmd 0.8), flight-heavy (**48 % both-feet-airborne**) gait — goes straight where directional
+  spun BECAUSE the forward command breaks the symmetry. Clean foot ALTERNATION ambiguous (L/R foot-height
+  corr ~0; `bounding.mp4` clarifies). A solid running baseline.
+- **Infra incident + lesson.** Accidentally powered off a LIVE box mid-session by killing a watchdog's bare
+  `sleep` child — a `;`-separated `sleep N; poweroff` script then ran its `poweroff`. User woke it; NOTHING
+  lost (poweroff ≠ destroy; had rsync'd the result first). README hardened (rule 5): `&&`-chain the watchdog
+  so a killed/interrupted sleep ABORTS the poweroff; kill the PARENT, never the `sleep`; `mkdir`-lock launches
+  (`pgrep -f` self-matches). Also: `experiment.rollout`'s command override is overwritten by the env's
+  internal re-sample — patch `sample_command` to force a command in standalone eval.
+- **Open / next:** directional needs the leg-symmetry fix (now clearly not just cosmetic); bounding alternation
+  needs video/contact confirmation; energy-on retrain (item 4) + ≥3 seeds (item 5) still deferred. Box powered
+  off after backup — **DESTROY the instance** from the immers console.
+
+---
+
 ## 2026-06-20 (cont.) — hop result CORRECTED to inconclusive; fair-comparison + box-safety hardening; gait-controller proposed
 - **Did:** Re-examined the hop spring result with the user and CORRECTED my too-quick "negative" call. Added
   explicit height control for a fair re-run (new `hop_overshoot` apex-cap term + configurable `hop_height_var`
