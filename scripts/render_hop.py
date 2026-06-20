@@ -15,7 +15,8 @@ import subprocess
 import numpy as np
 import mujoco
 
-from pea import experiment
+from pea import config as cfg_lib, experiment, policy as policy_lib
+from pea.env import make_env
 
 run = pathlib.Path(sys.argv[1])
 STEPS = int(sys.argv[2]) if len(sys.argv) > 2 else 250
@@ -24,7 +25,16 @@ OUT = sys.argv[4] if len(sys.argv) > 4 else "hop.mp4"
 W, H = (int(x) for x in (sys.argv[5].split("x") if len(sys.argv) > 5 else ("640", "480")))
 SLOWMO = int(sys.argv[6]) if len(sys.argv) > 6 else 1
 
-env, pol, mj = experiment.load_clean_policy(run)
+# Load with the FULL config (spring ACTIVE if the run has one), so a spring policy
+# rolls out with the spring it was trained with — not the spring-free clean env.
+cfg = cfg_lib.load_config(run / "config.yaml")
+env = make_env(cfg)
+mj = env.mj_model
+if (run / "policy_params").exists():
+    pol = policy_lib.load_policy(env, cfg, run / "policy_params", deterministic=True)
+else:
+    pol = policy_lib.load_policy_from_checkpoint(
+        env, cfg, policy_lib.latest_checkpoint(run), deterministic=True)
 dt = float(env.dt)
 renderer = mujoco.Renderer(mj, H, W)
 mjd = mujoco.MjData(mj)

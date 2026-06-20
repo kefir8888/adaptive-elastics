@@ -8,6 +8,43 @@ happened, what's open/broken, and the single next step.
 
 ---
 
+## 2026-06-20 — G1 hopping TRAINED + pogo-spring comparison (NEGATIVE); running attempt (box wedged)
+- **Hop S1 (elicit) — DONE, positive.** Trained `G1JoystickHop` from scratch on a rented immers H100,
+  200 M steps, eval reward **0.76 → 66 monotonic**. Robust two-footed IN-PLACE hop; the reward design
+  (signed `hop_rhythm` + dense `hop_push`) defeated the stand-still trap exactly as the review predicted.
+  Videos: `outputs/hop_s1_final_{hd,slowmo}.mp4`.
+- **Pogo-spring energy comparison — DONE, NEGATIVE (the headline).** Fitted a one-sided-linear pogo knee
+  spring from the S1 work-loop (`scripts/hop_spring_prep.py`): knee braking **−61 W** vs ankle −7.6 W → knee;
+  **k=106 N·m/rad, θ_engage=0.83, engage_sign=+1**. Trained matched no-spring + spring arms (warm-started
+  from S1, fixed cadence 1.9 Hz + apex target 0.09, energy off, measure post-hoc via
+  `scripts/hop_energy_compare.py`). Result: **spring gives NO efficiency gain — +2.6 % no-regen / +7 % regen,
+  ohmic share ~3 % (gear-killed, as walking)**; and the in-loop gait spent the spring's help on hopping
+  **18 % higher** (apex 0.118 → 0.139), not on energy. **Consistent with the central "gearing is the crux"
+  finding — the explosive analogue of the walking +7.4 % negative.** Caveat: a tightly-fixed apex / calibrated
+  energy penalty would isolate the energy channel, but ohmic ~3 % caps any gain. Videos:
+  `outputs/hop_cmp_{baseline,spring,sidebyside}.mp4`.
+- **Warm-start finding:** the full-strength pogo injection warm-started from S1 did NOT shock the gait
+  (step-0 reward 95 vs baseline 104) — the pogo spring is **synergistic** with hopping (no ramp needed),
+  unlike the antagonistic walking hip spring. (User's gradual-ramp idea kept in reserve as `k_dr`.)
+- **Running attempt (`G1JoystickBound`) — built + code-validated, but the autonomous run FAILED on infra.**
+  Built an alternating-foot bounding env (anti-phase clock + forward command, reusing the hop flight machinery),
+  warm-start from the hopper. Code is CORRECT (3 local `--smoke` passes incl. the warm-start `--restore` path).
+  BUT the box-side 5 h curriculum wedged the box: an incomplete `git pull` left STALE code on the box
+  (`G1JoystickBound` unknown there) → `pea-train` crashed each iteration, and my driver had a **busy-loop bug**
+  (the `stage` fn returned the trailing `log`'s exit code, so `|| break` never fired) → it spun the crashes,
+  thrashing the box and **starving sshd** (TCP/ping up, SSH handshake stalls). Could not kill it via SSH;
+  asked the user to reboot/destroy via the immers console. Fixed driver written (`/tmp/run_curriculum.sh`:
+  guards on real exit code + stage duration + run-dir creation + iteration cap).
+- **Pipeline fixes (carried, both latent for `G1JoystickRun` too):** register custom envs at `pea.env` import
+  (train.py resolves PPO params before `make_env`); PPO-config alias `G1JoystickHop/Run/Bound → G1JoystickFlatTerrain`.
+- **Infra lessons:** the immers VPN exit is severely flaky (banner-exchange/MTU stalls — IPQoS=none + the
+  `ubuntu` user are required) AND a runaway box-side loop can starve sshd into unreachability. ALWAYS guard
+  box-side loops against busy-spin and run `git reset --hard origin/main` before launching on the box.
+- **Open / next:** recover the box (user reboot) → relaunch the FIXED running curriculum (warm-start hopper),
+  or `poweroff` if stopping. Hop result + all videos saved under `outputs/` (gitignored).
+
+---
+
 ## 2026-06-19 (cont. 4) — Part 2 RESTARTED on the G1: continuous-hopping env subclass built + validated
 - **Did:** User reopened the G1 dynamic-movement track (toward running), starting with JUMPING — specifically
   **CONTINUOUS, two-footed, IN-PLACE HOPPING for ENERGY** (jump → land → jump …). Built `src/pea/g1_hop_env.py`
