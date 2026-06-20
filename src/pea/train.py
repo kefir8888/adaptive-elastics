@@ -65,6 +65,14 @@ def main() -> None:
         help="override energy_reward_weight (total-electrical penalty weight; "
         "for the calibration sweep)",
     )
+    p.add_argument(
+        "--spring_k",
+        type=float,
+        default=None,
+        help="override spring stiffness k and force k_dr off (staged stiffness "
+        "ramp: warm-start-chain runs with increasing k so the policy migrates "
+        "gradually to full strength)",
+    )
     args = p.parse_args()
 
     # Must be set before jax initializes: the default 0.75 memory fraction
@@ -85,6 +93,11 @@ def main() -> None:
     if args.energy_weight is not None:
         import dataclasses
         cfg = dataclasses.replace(cfg, energy_reward_weight=args.energy_weight)
+    if args.spring_k is not None:
+        import dataclasses
+        cfg = dataclasses.replace(
+            cfg, spring=dataclasses.replace(cfg.spring, k=args.spring_k, k_dr=False))
+        print(f"[pea-train] spring stiffness override: k={args.spring_k} (k_dr forced off)")
     suffix = "smoke" if args.smoke else args.suffix
     run_dir = cfg_lib.new_run_dir(cfg, root=args.output_dir, suffix=suffix)
     ckpt_dir = (run_dir / "checkpoints").resolve()

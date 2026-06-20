@@ -1,0 +1,35 @@
+# G1 hopping, SPRING arm — STAGED STIFFNESS RAMP version (NO domain randomization of k).
+# Byte-identical to g1_hop_baseline.yaml except the spring block. This is the canonical
+# fixed-k pogo spring config used by the staged-ramp driver (scripts/run_spring_ramp.sh):
+# it warm-start-chains runs with --spring_k 40 -> 75 -> 106.1 so the policy migrates to full
+# strength gradually and ENDS TUNED to k=106 (vs the per-episode-DR robustness compromise).
+# Because --spring_k forces k_dr off and overrides k, each stage's saved config.yaml records
+# its actual fixed k; the final k=106 run dir is then the comparison arm read directly by
+# scripts/hop_energy_compare.py (no separate eval config needed).
+name: g1_hop_spring_fixed
+env_name: G1JoystickHop
+seed: 1
+domain_randomization: true
+num_timesteps: 120000000
+env_overrides:
+  reward_config.tracking_sigma: 0.5
+  reward_config.max_foot_height: 0.22
+  reward_config.hop_freq: 1.9            # FIXED cadence (Hz) — must match the baseline arm
+  reward_config.hop_height_target: 0.09  # FIXED apex (m above standing) — must match baseline
+  reward_config.hop_height_var: 0.0009   # TIGHT apex tracking — must match baseline
+reward_scales:
+  termination: -100.0
+  action_rate: -0.01
+  dof_acc: -2.5e-7
+  torques: -1.0e-4
+  hop_height: 8.0
+  hop_overshoot: -30.0                    # apex cap — must match baseline
+spring:
+  kind: one_sided_linear                  # pogo: engages in flexion, returns at push-off
+  joint: knee
+  theta_engage: 0.827
+  engage_sign: 1.0
+  k: 106.1                                # fixed full strength; staged driver overrides per stage via --spring_k
+energy_reward_weight: 0.0                 # measure electrical energy POST-HOC
+energy_motor: g1
+ppo: {}
