@@ -31,8 +31,16 @@ immers console. Never let this happen again — follow ALL of these for any box-
 4. **Watch the first evaluation before walking away.** Confirm stage 1 wrote ≥1 row to `metrics.jsonl` before
    letting an unattended multi-hour run continue. Five minutes of watching catches an instant-crash loop.
 5. **Have an out-of-band kill switch BEFORE any long autonomous run.** Launch an independent watchdog that does not
-   depend on the driver: `nohup bash -c 'sleep <budget_seconds>; pkill -9 -f <driver>; pkill -9 -f pea-train; sudo
-   poweroff' &`. Ideally also obtain an immers API/destroy method so SSH is not the single point of control.
+   depend on the driver, and **chain it with `&&` so an interrupted timer ABORTS the action instead of triggering it**:
+   `nohup bash -c 'sleep <budget> && { pkill -9 -f "[p]ea-train"; sudo poweroff; }' &`. **Watchdog-kill hazard
+   (2026-06-20 — powered off a LIVE box mid-session):** to cancel or re-arm a watchdog, **NEVER `kill` its bare `sleep`
+   child.** With a `;`-separated script (`sleep N; poweroff`) the shell then sees the timer "finish" and runs the
+   `poweroff` it was counting down to — an immediate, accidental shutdown. Kill the watchdog's **parent** shell
+   (`pkill -f <wd-script>`), or just relaunch (a rebooted box has no stale watchdog). The `&&` form above is the real
+   fix: a killed `sleep` returns non-zero and short-circuits the poweroff. Use bracket patterns (`[p]ea-train`) so
+   `pkill` never self-matches, and remember `pgrep -f <pat>` self-matches the very command that contains `<pat>` (use
+   an atomic `mkdir` lock to guard launches, not a `pgrep` check). Ideally also obtain an immers API/destroy method so
+   SSH is not the single point of control.
 6. **Use portable tooling and test the recovery path.** macOS has **no `timeout`** command (use `gtimeout` or
    ssh's own `-o ConnectTimeout`); a broken recovery probe silently masks the box's true state. The immers VPN exit
    is flaky (SSH banner/MTU stalls) — always use `-o IPQoS=none` and log in as **`ubuntu`** (not `root`).
