@@ -108,7 +108,17 @@ in-place command, config-fixable cadence/apex for the matched comparison. Spring
 knee/ankle **one_sided_linear** pogo, fit from a baseline work-loop. Authoritative
 plan + validity checklist: **`docs/hop_design.md`**; configs `g1_hop_s1` (elicit → run
 first), `g1_hop_baseline`+`g1_hop_spring` (matched pair). Validated locally (reset/step
-+ full PPO `--smoke`); **next: train S1 on the GPU, gate on a real flight window.**
++ full PPO `--smoke`).
+**UPDATE 2026-06-20:** S1 hopper TRAINED (reward 0.76→66, a real two-footed hop). The pogo-knee-spring
+energy comparison ran but is **INCONCLUSIVE, not negative** — confounded (the spring arm hopped 18 %
+higher; ~13 % cheaper per-unit-apex, hinting it HELPS). For HOPPING the spring's win is braking-energy
+recovery (a *mechanical-work* reduction, gear-INDEPENDENT), so the "gearing is the crux" argument does
+NOT straightforwardly apply here. **Next: a FAIR apex-pinned re-run** (`scripts/run_hop_compare.sh`; apex
+capped via the new `hop_overshoot` term + tight `hop_height_var`) → `scripts/hop_energy_compare.py`
+(FAIRNESS GATE). A **gait-conditioned single controller** (hop / single-leg / run in one policy, commanded
+by a per-phase foot-contact schedule) is proposed for the chapter after — `docs/gait_controller_design.md`.
+The bounding env `G1JoystickBound` (`src/pea/g1_bound_env.py`) is built + validated, but its autonomous
+run FAILED on infra (a busy-loop driver wedged the box — nothing trained; see the box-safety gotcha).
 (The dog-/G1-running and gravity-comp tracks stay as they were.)
 
 ## Session ritual
@@ -157,14 +167,17 @@ sessions and start fresh ones freely (a new session reloads this file automatica
   - `env.py` (G1 walking env; optionally injects spring/energy wrappers; **registers the custom
     env subclasses at import** so `train.py`'s `ppo_params_for` finds them before `make_env`)
   - dynamic-movement env subclasses: `g1_run_env.py` (`G1JoystickRun`, flight-enabling),
-    `g1_hop_env.py` (`G1JoystickHop`, continuous two-footed hopping — ACTIVE Part-2 dir).
+    `g1_hop_env.py` (`G1JoystickHop`, continuous two-footed hopping — ACTIVE Part-2 dir),
+    `g1_bound_env.py` (`G1JoystickBound`, alternating-foot bounding/running — built, untrained).
     Custom G1 env names alias to `G1JoystickFlatTerrain`'s PPO config in `policy.ppo_params_for`.
   - `springs.py` (`τ_spring(θ)`: linear + nonlinear/tunable; `one_sided_linear` = hop pogo element)
   - `energy.py` (copper-loss model + cost of transport; `MOTORS` incl. `limx_knee`, `galaxea_torso`, `galaxea_arm`)
   - `policy.py` (network def + load/save), `config.py`
   - gravity-comp direction: `urdf_loader.py` (load EXTERNAL ROS/URDF robots into MuJoCo: package:// + glb→obj),
     `gravcomp.py` (trajectory, torque, electrical energy, spring fit, reduced-model IK), `render_util.py` (offscreen video + scene)
-- `scripts/` — `train.py` (Colab), `rollout.py` (local), `analyze.py` (local); gravity-comp:
+- `scripts/` — `train.py` (Colab), `rollout.py` (local), `analyze.py` (local); G1 hopping/running:
+  `run_hop_compare.sh` + `run_curriculum.sh` (SAFE box drivers — nice-19/guards), `hop_spring_prep.py`
+  (work-loop + pogo fit), `hop_energy_compare.py` (matched-task energy, FAIRNESS GATE), `render_hop.py`; gravity-comp:
   `galaxea_lift.py`, `limx_roll.py`, `gravcomp_table.py`, `setup_robots.sh` (fetch/convert robots), `collect_report.sh`
 - `configs/` — no-spring (`baseline.yaml`, `walk_baseline.yaml`) + spring arms (`spring_hip_linear.yaml`, `spring_linear.yaml`, `spring_constant.yaml`, `spring_semiparabolic.yaml`); G1 hopping (`g1_hop_s1.yaml` elicit, `g1_hop_baseline.yaml` + `g1_hop_spring.yaml` matched pair); gravity-comp: `galaxea_lift.yaml`, `limx_roll.yaml`
 - `notebooks/colab_train.ipynb` — thin runner: pip-install repo, mount Drive, call train.py
@@ -186,6 +199,15 @@ Edit in VS Code → `git push` to GitHub → Colab `pip install`s the repo + run
 "Google Drive for desktop" mirrors it to the Mac → `analyze.py` reads the synced folder.
 
 ## Constraints & gotchas — what to AVOID
+- **GPU-box autonomous runs — REAL MONEY AT STAKE (see README "GPU-box safety").** A busy-loop driver
+  (a shell `stage` fn that ended with `log`, so it returned 0 and `|| break` was dead code) spun a failing
+  `pea-train` fast enough to **starve sshd and wedge a still-billing box** — unkillable over SSH; the instance
+  had to be destroyed from the immers console. MANDATORY for any box-side loop / unattended run: run launchers
+  at **`nice -19 ionice -c3`** (sshd then never starves → box stays reachable); the loop must capture the REAL
+  exit code, enforce a min stage duration + run-dir check + iteration cap + **`sleep 60` on failure**;
+  `git reset --hard origin/main` + `uv run python -c "from pea.env import make_env"` BEFORE launching (never
+  trust a flaky-link transfer); watch the first eval; run an independent watchdog. The safe drivers are
+  `scripts/run_hop_compare.sh` / `run_curriculum.sh`. (macOS has no `timeout` — use ssh `-o ConnectTimeout`.)
 - **Gravity-comp direction — MuJoCo `mj_inverse` is unreliable** on the reduced torso model: it returned a
   large SPURIOUS base-joint torque (640 vs 15 N·m, verified against the explicit equation of motion). Use
   `M·q̈ + qfrc_bias` (`gravcomp.multi_joint_torque`), NOT `mj_inverse`.

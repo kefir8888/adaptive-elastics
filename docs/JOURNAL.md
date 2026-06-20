@@ -8,6 +8,31 @@ happened, what's open/broken, and the single next step.
 
 ---
 
+## 2026-06-20 (cont.) — hop result CORRECTED to inconclusive; fair-comparison + box-safety hardening; gait-controller proposed
+- **Did:** Re-examined the hop spring result with the user and CORRECTED my too-quick "negative" call. Added
+  explicit height control for a fair re-run (new `hop_overshoot` apex-cap term + configurable `hop_height_var`
+  in `g1_hop_env`; apex pinned in `g1_hop_{baseline,spring}.yaml`; `hop_energy_compare.py` FAIRNESS GATE).
+  Hardened GPU-box ops after the box-wedge (README "VERY IMPORTANT — GPU-box safety"; safe drivers
+  `scripts/run_hop_compare.sh` + `run_curriculum.sh` with nice-19 / busy-spin guards / git-reset-verify).
+  Wrote `docs/gait_controller_design.md` (the user's gait-conditioned single-controller idea). The box was
+  DESTROYED by the user (it stayed unkillable — see below).
+- **Decided / why:** (1) The hop spring result is **INCONCLUSIVE, not negative** — confounded (spring arm hopped
+  18 % higher; per-unit-apex it was ~13 % CHEAPER, hinting the spring HELPS). For HOPPING the spring's channel is
+  braking-energy recovery = a *mechanical-work* reduction that is gear-INDEPENDENT, so the earlier "gearing is the
+  crux → negative" was an over-quick generalization from walking. A fair (apex-pinned) re-run is required.
+  (2) Box-side autonomous loops MUST run at `nice -19`, be unable to busy-spin, and verify code before launch
+  (a busy-loop starved sshd → unkillable, still-billing box; the instance had to be destroyed from the console).
+- **Result-numbers (the CONFOUNDED run — to be redone):** baseline 247.8 J/hop @ apex 0.118 m; spring 254.2 J/hop
+  @ 0.139 m (+2.6 % raw; +18 % height → ~−13 % per-unit-apex); ohmic ~3 %; cadence 1.92 Hz (matched). Policies
+  stashed in `outputs/hop_policies/{final,baseline,spring}/`. The running/bounding attempt produced NOTHING
+  (driver busy-loop, never trained; env code is validated).
+- **Open / broken:** the FAIR hop comparison has not been run (needs a fresh box); bounding/running never trained
+  (infra failure, not a code bug); the S1 hopper checkpoint was lost with the box (re-train, ~70 min).
+- **Next:** on a fresh box, `scripts/run_hop_compare.sh` (S1 elicit → apex-capped baseline+spring) →
+  `scripts/hop_energy_compare.py` (FAIRNESS GATE) → the real spring-vs-no-spring energy number.
+
+---
+
 ## 2026-06-20 — G1 hopping TRAINED + pogo-spring comparison (NEGATIVE); running attempt (box wedged)
 - **Hop S1 (elicit) — DONE, positive.** Trained `G1JoystickHop` from scratch on a rented immers H100,
   200 M steps, eval reward **0.76 → 66 monotonic**. Robust two-footed IN-PLACE hop; the reward design
