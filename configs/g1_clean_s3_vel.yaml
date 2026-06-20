@@ -26,7 +26,12 @@ reward_scales:
   torques: -2.0e-5
   tracking_lin_vel: 2.0                      # strong tracking = controllability
   tracking_ang_vel: 2.0
-  leg_symmetry: -1.0                         # lighter now (a moving robot is less symmetric)
+  leg_symmetry: -2.0                         # KEEP strong (was -1.0): the spin's root cause is the
+                                             # diagonal STANCE, not motion; s3 allows 0-velocity cmds
+                                             # (lin_vel_x includes 0) so it lacks the forward-command
+                                             # floor that protects s4 — strong symmetry is the guard.
+                                             # The synchronous-clock hop stays foot-symmetric even while
+                                             # tracking vel, so -2.0 does not fight the commanded motion.
   hop_height: 8.0
   hop_overshoot: -20.0
 spring:

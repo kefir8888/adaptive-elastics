@@ -36,6 +36,18 @@ stage(){ # cfg steps restore tag -> sets STAGE_DIR; returns 0 only on a REAL (>1
   return 0
 }
 stage configs/g1_clean_s1.yaml       200000000 ""     clean_s1 || exit 1; S1=$STAGE_DIR
+# *** HARD GATE *** — automated: do NOT build s2-s4 on a spinning base. Measure mean
+# yaw @ zero command (sample_command patched to a constant; raw rollout override is
+# re-sampled away). hop_yaw_gate.py exits non-zero unless |yaw|<0.15, drift~0, survival.
+GATE=$HOME/clean_s1_gate.log
+say "GATE s1: yaw @ zero command (need |yaw|<0.15, drift~0, survival) -> $GATE"
+if timeout 1200 nice -n 19 uv run python scripts/hop_yaw_gate.py --run "$S1" \
+     --command 0 0 0 --steps 600 --seeds 0 1 2 >"$GATE" 2>&1; then
+  say "S1 YAW GATE PASSED -> $(grep -E '\|mean yaw\||PASS' "$GATE" | tr '\n' ' ')"
+else
+  say "S1 YAW GATE FAILED (rc=$?) — STOP. Inspect $GATE; do NOT build s2-s4. (tune leg_symmetry -4/-6, re-elicit.)"
+  exit 2
+fi
 stage configs/g1_clean_s2_height.yaml 100000000 "$S1" clean_s2 || exit 1; S2=$STAGE_DIR
 stage configs/g1_clean_s3_vel.yaml    100000000 "$S2" clean_s3 || exit 1; S3=$STAGE_DIR
 stage configs/g1_clean_s4_bound.yaml  140000000 "$S3" clean_s4 || exit 1; S4=$STAGE_DIR
