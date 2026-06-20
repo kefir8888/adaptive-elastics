@@ -1,0 +1,27 @@
+# G1 directional HOPPING, curriculum stage D1 (final low-speed band). Warm-start from
+# D0. Identical to g1_hop_dir_d0.yaml except the command bands widen to the final
+# controllable target (still LOW: lin ~0.3 m/s, yaw ~0.5 rad/s). Tracking weights and
+# sigma stay fixed (one knob ramps: the command band).
+name: g1_hop_dir_d1
+env_name: G1JoystickHop
+seed: 1
+domain_randomization: true
+num_timesteps: 120000000
+env_overrides:
+  reward_config.tracking_sigma: 0.3
+  reward_config.max_foot_height: 0.22
+  lin_vel_x: [-0.3, 0.3]                   # final low-speed band (m/s)
+  lin_vel_y: [-0.3, 0.3]
+  ang_vel_yaw: [-0.5, 0.5]                 # final low yaw band (rad/s)
+reward_scales:
+  termination: -50.0
+  action_rate: -0.01
+  dof_acc: -2.5e-7
+  torques: -2.0e-5
+  tracking_lin_vel: 1.5
+  tracking_ang_vel: 1.0
+spring:
+  kind: none
+energy_reward_weight: 0.0
+energy_motor: g1
+ppo: {}

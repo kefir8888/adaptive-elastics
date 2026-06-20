@@ -1,0 +1,28 @@
+# G1 directional HOPPING, curriculum stage D0 (gentle introduction). Warm-start from
+# the in-place hopper (S1); command a SMALL velocity so the policy learns to track a
+# direction while hopping. BOTH linear (x,y) and angular (yaw) commanded; LOW speed,
+# controllability-first (boosted tracking + tighter sigma). Height stays MAXIMIZE +
+# sampled cadence (env defaults) — this is direction control, not the energy comparison.
+name: g1_hop_dir_d0
+env_name: G1JoystickHop
+seed: 1
+domain_randomization: true
+num_timesteps: 120000000
+env_overrides:
+  reward_config.tracking_sigma: 0.3       # tighter than the 0.5 hop default -> precise tracking
+  reward_config.max_foot_height: 0.22
+  lin_vel_x: [-0.15, 0.15]                # SMALL commanded fwd/back (m/s) — un-zero the hop command
+  lin_vel_y: [-0.15, 0.15]                # SMALL commanded lateral (m/s)
+  ang_vel_yaw: [-0.3, 0.3]                # SMALL commanded yaw rate (rad/s)
+reward_scales:
+  termination: -50.0
+  action_rate: -0.01
+  dof_acc: -2.5e-7
+  torques: -2.0e-5
+  tracking_lin_vel: 1.5                    # BOOSTED (hop default 0.5) -> follow the linear command
+  tracking_ang_vel: 1.0                    # BOOSTED (hop default 0.5) -> follow the yaw command
+spring:
+  kind: none
+energy_reward_weight: 0.0
+energy_motor: g1
+ppo: {}
