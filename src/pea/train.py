@@ -125,6 +125,12 @@ def main() -> None:
             training_params["randomization_fn"] = payload.payload_randomizer(
                 cfg.payload_max_kg
             )
+        elif cfg.centered_dr:
+            # Nominal-centered DR (pea.randomize): keeps the nominal model an INTERIOR
+            # point of the DR set, so a (spring) policy is trained for it and the standard
+            # nominal-deterministic energy eval is valid. See pea/randomize.py.
+            from pea.randomize import centered_domain_randomize
+            training_params["randomization_fn"] = centered_domain_randomize
         else:
             training_params["randomization_fn"] = registry.get_domain_randomizer(
                 cfg.env_name

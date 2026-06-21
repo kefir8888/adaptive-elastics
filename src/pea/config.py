@@ -55,6 +55,14 @@ class RunConfig:
     # None -> use MuJoCo Playground's recommended value for the env.
     num_timesteps: int | None = None
     domain_randomization: bool = True
+    # Use the nominal-CENTERED domain randomizer (pea.randomize) instead of the stock
+    # Playground one. The stock G1 randomizer puts the nominal model at the BOUNDARY of the
+    # damping axes (armature x U(1.0,1.05) one-sided; frictionloss skewed high), so a policy
+    # is never trained at the nominal point and an energetic spring gait over-hops and falls
+    # there even though it scores well under DR. Centered DR makes nominal an interior point,
+    # so the standard nominal-deterministic energy eval is valid. Only affects training when
+    # domain_randomization is also true.
+    centered_dr: bool = False
     spring: SpringConfig = dataclasses.field(default_factory=SpringConfig)
     # Overrides merged onto Playground's recommended brax PPO params.
     ppo: dict = dataclasses.field(default_factory=dict)
