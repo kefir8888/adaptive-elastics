@@ -45,8 +45,14 @@ renderer = mujoco.Renderer(mj, H, W)
 mjd = mujoco.MjData(mj)
 cam = mujoco.MjvCamera()
 cam.type = mujoco.mjtCamera.mjCAMERA_FREE
-# Side view; fixed lookat height so the up/down hop is not cancelled by tracking.
-cam.distance, cam.elevation, cam.azimuth = 3.4, -6.0, 90.0
+# Side view by default (fixed lookat height so the up/down hop is not cancelled by tracking).
+# Override with PEA_RENDER_CAM="azimuth,elevation,distance", e.g. a 3/4 elevated view
+# ("125,-20,4.5") that makes forward/lateral/yaw command-following all visible.
+if os.environ.get("PEA_RENDER_CAM"):
+    _az, _el, _dist = (float(x) for x in os.environ["PEA_RENDER_CAM"].split(","))
+    cam.distance, cam.elevation, cam.azimuth = _dist, _el, _az
+else:
+    cam.distance, cam.elevation, cam.azimuth = 3.4, -6.0, 90.0
 CAM_Z = 0.75
 black = np.zeros((H, W, 3), np.uint8)
 frames = []
