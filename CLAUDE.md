@@ -153,6 +153,24 @@ is never trained at nominal and the energetic spring over-hops + topples there (
 nominal interior; both fair configs set it. **NEXT: re-run `run_hop_fair.sh` with centered DR (both arms; configs
 ready), ideally parallelized across 2 boxes, GATE the spring's nominal survival after k=40, then
 `hop_energy_compare.py` → the J/hop number, then render the pair.** Box `…52` UP (s2 present); box `…74` to delete.
+**UPDATE 2026-06-22 — in-place jump = NEGATIVE; PIVOTED to RUNNING; full-strength bound spring shows a PROMISING
+CoT win (confounded). NEXT = energy-objective training.** The centered-DR fair re-run still FAILED (spring over-hops
+0.14 vs 0.10, 0/3); root cause was that the **base hop itself was never stable** (in-place two-footed hop is
+inherently marginal, 1/3-2/3 — not the spring/DR). Stabilization v1→v4 fixed the topple (v2 attitude penalties:
+tilt 70-126°→15-17°) and added a `hop_stay` in-place anchor (displacement + 0.3 m dead-zone) but plateaued 1/3-2/3.
+**Spring on the best base (v2): 0/3, collapses** — so an always-on (no-clutch) spring is incompatible with stable
+in-place hopping (the old −4.4 % was a spinning-base artifact). **User-directed PIVOT to running (bounding):** re-fit
+knee pogo on s4 bound (k=127.7, braking −59.6 W). Fixed-cadence compare NEUTRAL (−1.4 %, ohmic ~3 %) — but **the
+spring's real channel is mechanical braking-recovery (gear-independent), and the energy-optimal cadence may differ
+(resonance), so fixed-cadence + energy-OFF handicaps it**. Cadence sweep: no resonance shift, but at **FULL strength
+the bound RUNS (vx 0.31-0.82 m/s vs baseline ~0.1) at comparable E/hop → CoT several-fold lower** (the spring's
+energy → propulsion). CONFOUNDED: spring 0/3 (runs-then-falls), baseline barely translates, spring trained +100 M.
+**DECISIVE NEXT TEST: energy-objective training** — `energy_reward_weight` ON (gait optimizes electrical energy →
+exploits the spring), FREE cadence (bound 1.6-2.6, don't fix `hop_freq`), PARITY baseline (s4 + equal steps, no
+spring), compare CoT at a matched ACHIEVED speed, both ≥2/3. Results + plan: `outputs/clean_curriculum/fair_centered/
+running_spring_results.md`. New infra: `hop_stay` anchor (`g1_hop_env.py`), command-aware `hop_failure_diag`/
+`hop_energy_compare`/`hop_spring_prep`, `cadence_sweep.py`, `g1_bound_spring.yaml`+`run_bound_spring.sh`. Box DESTROYED
+(s4 warm-start + configs/results saved local); provision fresh tomorrow, upload s4, run the energy-objective bound spring.
 
 ## Session ritual
 Project memory lives on disk, not in any single conversation. Work in short, task-scoped

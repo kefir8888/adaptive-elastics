@@ -8,6 +8,39 @@ happened, what's open/broken, and the single next step.
 
 ---
 
+## 2026-06-22 — in-place spring = NEGATIVE; PIVOT to running; full-strength bound spring shows PROMISING CoT win (confounded)
+- **Did (long autonomous session):** Re-ran the fair in-place hop spring with centered DR → **gate FAILED**
+  (spring over-hops apex 0.14 vs 0.10, falls in ~5 s, 0/3 nominal). Diagnosed the real cause: **the base hop
+  itself was never stable** (s2 plateaued at 730/1000 ep length; nominal survival 1/3) — not the spring/DR.
+  Stabilization campaign v1→v4: **v2 FIXED the topple** (attitude penalties: ang_vel_xy -0.15→-1.0, orientation
+  -2→-8, termination -100→-400; tilt 70-126°→15-17°, 2/3 nominal) but it **drifts** 2-3.6 m; added a **hop_stay
+  in-place anchor** (displacement penalty + 0.3 m dead-zone) — v3/v4 traded drift for over-constraint, plateaued
+  **1/3-2/3**. Conclusion: the synchronous two-footed **in-place hop is inherently marginally stable**; reward
+  tuning won't reach 3/3.
+- **A (spring on best base v2): NEGATIVE.** k40 gate **0/3**, over-hops + collapses even the attitude-stable base.
+  So the old −4.4 % was a spinning-base artifact; an always-on (no-clutch) spring is incompatible with stable
+  in-place hopping (consistent with Part-1 walking).
+- **PIVOT to RUNNING (bounding), user-chosen** (after weighing imitation-jump vs running). Re-fit knee pogo on s4
+  bound (theta_engage 0.734, **k=127.7**; braking **-59.6 W** > -39 W in-place). Ramp k64→127.7 warm from s4.
+  - **Fixed-cadence compare (k64), apex-matched FAIR:** E/hop **-1.4 % no-regen / +2.8 % regen** (NEUTRAL); ohmic ~3 %.
+  - **User insight:** the spring's win is the **mechanical** braking-recovery (gear-independent, ~97 % of budget),
+    NOT ohmic; and the **energy-optimal cadence may differ** (resonance) — fixed cadence handicaps the spring.
+  - **Cadence sweep (relaxed):** no resonance shift (both min ~2.2 Hz). k64 spring equal-or-worse. **BUT k128
+    (FULL strength): the bound RUNS — vx 0.31-0.82 m/s vs baseline ~0.1 — at comparable E/hop → CoT (J/m)
+    several-fold lower (541 vs 3300-9100).** The spring's stored energy → propulsion, the intended mechanism,
+    visible only at full strength. Full numbers: `outputs/clean_curriculum/fair_centered/running_spring_results.md`.
+- **CONFOUNDS (no over-claim):** spring arm unstable (0/3, runs-then-falls); baseline barely translates (CoT gap
+  partly "spring runs / baseline doesn't"); spring trained ~+100 M vs s4.
+- **Infra:** fixed the over-firing `gpu_spend_reminder.py` hook (now only `gpu_box_setup`); `.claude/settings.local.json`
+  read-only allowlist; `hop_stay` anchor+deadzone (`g1_hop_env.py`); command-aware `hop_failure_diag` / `hop_energy_compare`
+  / `hop_spring_prep` (forward gaits); `cadence_sweep.py`; `g1_bound_spring.yaml` + `run_bound_spring.sh`. Memory:
+  `no-idle-billing-while-blocked`.
+- **Open/next (DECIDED with user — TOMORROW):** the decisive test is **energy-objective training**:
+  `energy_reward_weight` ON (gait optimizes electrical energy → exploits the spring), **free cadence** (bound samples
+  1.6-2.6, don't fix), **parity baseline** (s4 + equal steps, no spring → removes the +100 M confound), compare **CoT
+  at a matched ACHIEVED forward speed**, require both ≥2/3 stable. Box DESTROYED (s4 warm-start + all configs/results
+  saved local). Provision fresh tomorrow, upload s4, run energy-objective bound spring.
+
 ## 2026-06-21 (cont. 2) — clean curriculum DONE (s1-s4, warm-started); fair spring run BRITTLE → DR-boundary root cause + centered-DR fix
 - **Did:** Relaxed the s1 gate to yaw+survival (drift is benign; `hop_yaw_gate.py --drift_gate` default off),
   warm-start-continued the curriculum on a fresh box (`run_clean_curriculum_cont.sh`): **s2 (height, reward 113)
