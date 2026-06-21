@@ -1,0 +1,35 @@
+# RUNNING spring arm: knee pogo on the s4 BOUNDING gait (alternating-foot run). BYTE-IDENTICAL to the
+# s4 baseline config (g1_clean_s4_bound) EXCEPT the spring block -> fair comparison. The spring's recovery
+# channel is LARGER and USEFUL here: bounding knee braking is -59.6 W (vs -39 W in-place), and a forward gait
+# turns the spring's returned energy into PROPULSION (not a fight against an apex cap, which collapsed the
+# in-place hop). Spring re-fit from the s4 bounding work-loop (knee, theta_engage 0.734, k 127.7). Warm-started
+# from s4 and ramped (driver overrides --spring_k). Matched DR (stock, like s4) and forward-command range.
+name: g1_bound_spring
+env_name: G1JoystickBound
+impl: jax
+seed: 1
+num_timesteps: 60000000
+domain_randomization: true
+spring:
+  kind: one_sided_linear                   # knee pogo: engages in stance flexion (landing), returns at push-off
+  joint: knee
+  theta_engage: 0.734
+  engage_sign: 1.0
+  k: 127.7                                  # final stiffness; ramp driver overrides per stage
+ppo: {}
+reward_scales:
+  termination: -50.0
+  action_rate: -0.01
+  dof_acc: -2.5e-07
+  torques: -2.0e-05
+  feet_clearance: -1.0
+env_overrides:
+  reward_config.tracking_sigma: 0.4
+  reward_config.max_foot_height: 0.2
+energy_reward_weight: 0.0
+energy_motor: g1
+command_forward:
+  vx_min: 0.4
+  vx_max: 1.0
+  vy_max: 0.0
+  vyaw_max: 0.0

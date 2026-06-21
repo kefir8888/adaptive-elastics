@@ -27,14 +27,17 @@ from pea.env import joints_by_substring
 run = pathlib.Path(sys.argv[1])
 STEPS = int(sys.argv[2]) if len(sys.argv) > 2 else 600
 OUT = sys.argv[3] if len(sys.argv) > 3 else "outputs/hop_workloop.png"
+# Optional command "vx,vy,vyaw" (default in-place 0,0,0). For a RUNNING/bounding gait pass e.g.
+# "0.7,0,0" so the work-loop is built on the actual forward gait, not a fallen in-place attempt.
+CMD = tuple(float(x) for x in sys.argv[4].split(",")) if len(sys.argv) > 4 else (0.0, 0.0, 0.0)
 TRANSIENT_S = 2.0
 
 env, pol, mj = experiment.load_clean_policy(run)
 dt = float(env.dt)
-# Roll out in place (zero command). Concatenate a couple of seeds for more cycles.
+# Roll out at CMD (in-place by default; forward for a running gait). Concatenate seeds for cycles.
 qpos, qvel, qfrc = [], [], []
 for seed in (0, 1):
-    tr = experiment.rollout(env, pol, (0.0, 0.0, 0.0), STEPS, seed=seed)
+    tr = experiment.rollout(env, pol, CMD, STEPS, seed=seed)
     if tr["n"] > 0:
         qpos.append(tr["qpos"]); qvel.append(tr["qvel"]); qfrc.append(tr["qfrc"])
 qpos = np.concatenate(qpos); qvel = np.concatenate(qvel); qfrc = np.concatenate(qfrc)
