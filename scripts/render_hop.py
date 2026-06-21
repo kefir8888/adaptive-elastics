@@ -8,6 +8,7 @@ Usage: render_hop.py <run_dir> <steps_per_clip> <n_clips> <out.mp4> [WxH] [slowm
   WxH     : frame size, e.g. 1920x1080 (default 640x480)
   slowmo  : integer playback slowdown, e.g. 4 = 4x slow (default 1)
 """
+import os
 import sys
 import pathlib
 import subprocess
@@ -24,6 +25,10 @@ N = int(sys.argv[3]) if len(sys.argv) > 3 else 2
 OUT = sys.argv[4] if len(sys.argv) > 4 else "hop.mp4"
 W, H = (int(x) for x in (sys.argv[5].split("x") if len(sys.argv) > 5 else ("640", "480")))
 SLOWMO = int(sys.argv[6]) if len(sys.argv) > 6 else 1
+# Optional joystick command (vx,vy,vyaw) via env var, e.g. PEA_RENDER_CMD="0.3,0,0" to show a
+# forward-moving stage. Default zero = in-place hop. Clips are < 500 steps, so the env's internal
+# command re-sample (step>500) never fires and experiment.rollout's per-step command pin holds.
+CMD = tuple(float(x) for x in os.environ.get("PEA_RENDER_CMD", "0,0,0").split(","))
 
 # Load with the FULL config (spring ACTIVE if the run has one), so a spring policy
 # rolls out with the spring it was trained with — not the spring-free clean env.
@@ -58,8 +63,9 @@ def _render(i, st):
     frames.append(renderer.render().copy())
 
 
+print(f"command = {CMD}", flush=True)
 for vid in range(N):
-    traj = experiment.rollout(env, pol, (0.0, 0.0, 0.0), STEPS, seed=vid,
+    traj = experiment.rollout(env, pol, CMD, STEPS, seed=vid,
                               callback=_render, record_terminal=True)
     frames.extend([black] * 8)  # short separator between clips
     print(f"clip {vid + 1}/{N}: {traj['n']} steps", flush=True)
