@@ -9,6 +9,7 @@ name: g1_hop_fair_spring
 env_name: G1JoystickHop
 seed: 1
 domain_randomization: true
+centered_dr: true                          # nominal-centered DR (must match the baseline arm)
 num_timesteps: 80000000
 env_overrides:
   reward_config.tracking_sigma: 0.3

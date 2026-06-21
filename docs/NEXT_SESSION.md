@@ -1,51 +1,43 @@
-# NEXT SESSION — actionable handoff (updated 2026-06-21 cont.)
+# NEXT SESSION — actionable handoff (updated 2026-06-21 cont. 2)
 
-**The spin is SOLVED.** Clean s1 (leg_symmetry -2.0 + strong heading hold) trained to reward ~80,
-3/3 survival, **yaw 0.016 rad/s** at zero command (was +1.8–3.8 across the whole prior lineage). The
-automated s1 gate failed only on a **secondary 0.16 m/s drift** (not spin), so the driver correctly
-aborted before s2–s4. The s1 policy is saved locally:
-`outputs/clean_curriculum/2026-06-21_g1_clean_s1_clean_s1/` (policy_params + checkpoints + metrics).
-Context: `CLAUDE.md`, `docs/JOURNAL.md` (2026-06-21 cont.), `docs/hop_jump_report.md`.
+**Goal:** finally get the FAIR hop-spring energy number. The clean non-spinning curriculum is DONE (s1–s4);
+the spring-vs-no-spring comparison was BLOCKED by a brittle spring policy, now diagnosed and fixed (centered DR).
+Read first: `CLAUDE.md`, top of `docs/JOURNAL.md` (2026-06-21 cont. 2), and the README "GPU-box safety".
 
----
+## Where things stand
+- **Clean curriculum DONE.** s1 (non-spinning, yaw 0.016) → s2 (height, r113) → s3 (velocity, r117) → s4
+  (bounding, r24). All in `outputs/clean_curriculum/`. Videos in `streak_videos/`. s3 yaw tracks both ways;
+  forward translation is s4's job (s4: cmd 0.5/0.7/1.0 → 0.30/0.48/0.74 m/s straight).
+- **Spring fit done.** Knee pogo (k=93.3, θ_engage 0.701, engage_sign +1) from the s2 work-loop; −51 W braking.
+- **Fair comparison attempt #1 FAILED.** The spring arm trained (reward ~120) but is BRITTLE — falls in ~2 s at
+  every local eval condition (the stock DR puts the nominal model at the least-damped boundary; the energetic
+  spring over-hops there). Diagnosis + fix in the journal.
+- **FIX in place (`d2aab0b`):** `centered_dr: true` (pea/randomize.py) makes the nominal an interior point. Both
+  `configs/g1_hop_fair_{baseline,spring}.yaml` already carry it.
+- **Box state:** `…52` is UP (no auto-poweroff; s2 at `~/runs/2026-06-21_g1_clean_s2_height_clean_s2`). Box `…74`
+  powered off — **DELETE it from the immers console** if not already.
 
-## The decision to make first (drift handling)
+## THE NEXT RUN — re-do the fair comparison with centered DR (PARALLELIZED)
+User will provide a **second box IP** to parallelize (the ramp is sequential; the baseline is independent).
 
-The yaw contaminant is gone; the only blemish is ~0.16 m/s lateral drift (the hopper goes straight but
-wanders ~1.9 m / 12 s). Two paths:
+1. On **box A (`…52`)**: `bash scripts/run_hop_fair.sh /home/ubuntu/runs/2026-06-21_g1_clean_s2_height_clean_s2`
+   — but to parallelize, run ONLY the spring ramp there (the ~73-min long pole). On **box B**: run ONLY the
+   baseline (~30 min). (Either split `run_hop_fair.sh` into two, or just launch the two `pea-train` chains by hand:
+   baseline = `g1_hop_fair_baseline.yaml --restore <s2>`; ramp = `g1_hop_fair_spring.yaml --spring_k 40/75/93.3`
+   chained.) Both arms use centered DR (in the configs). git reset + import-verify + nice-19 + no-poweroff babysitter.
+2. **GATE the spring early:** after the k=40 stage, check survival on NOMINAL deterministic (`scripts/diag` pattern /
+   the `/tmp/diag_spring.py` approach) — if the centered-DR spring is STILL brittle (falls <3 s nominal), STOP and
+   rethink (maybe shorten the ramp, lower apex, or train without warm-start). Don't spend the whole ramp on faith.
+3. When both arms finish: `uv run python scripts/hop_energy_compare.py <fair_baseline_dir> <fair_spring_k93_dir>`
+   — deterministic nominal, now VALID (apex/cadence match, J/hop no-regen+regen, ohmic share, % delta).
+   Free cross-check: also compare vs the OLD stock-DR baseline (`outputs/clean_curriculum/fair/...fair_baseline`).
+4. **Then render** the fair pair (user asked): baseline + spring in-place + side-by-side, into
+   `outputs/clean_curriculum/fair/videos/` with a README.
 
-- **(a) RECOMMENDED — drift is benign, proceed.** For the in-place spring-energy comparison both arms
-  drift equally and s3's velocity tracking trains it out, so drift does NOT contaminate the result the
-  way spin did. Relax the gate to **yaw + survival** (drift a soft ~0.25 m/s diagnostic, not a hard
-  fail), and continue **s2→s4 warm-started from THIS saved s1** (re-upload it to a fresh box and
-  `--restore` from it — skips re-training s1, ~52 min saved). Edit `hop_yaw_gate.py`'s PASS logic to
-  separate the yaw verdict from the drift diagnostic.
-- **(b) cleaner base — re-elicit s1 with anti-drift.** The drift, like the old yaw, comes from tracking
-  being a *positive bonus* flat near zero. Add a direct penalty: tighten `tracking_sigma` 0.3→0.2 in
-  `g1_clean_s1.yaml`, and/or add an explicit horizontal-base-velocity cost term to `g1_hop_env.py`
-  (mirror `_reward_leg_symmetry`: a small negative cost on `|get_global_linvel(pelvis)[:2]|` at zero
-  command). Smoke-test, then re-run s1 (~52 min) and re-gate.
+## Box runbook + safety (unchanged, validated this campaign)
+Bootstrap (`gpu_box_setup.sh` or the `~/bootstrap.sh` pattern) → `git reset --hard origin/main` → verify
+`from pea.env import make_env` + `git rev-parse HEAD`. Launch detached at `nice -19 ionice -c3`. Retry-ssh
+(`-o IPQoS=none`; banner stalls = flaky VPN). Mac helpers persist as `/tmp/bx`, `/tmp/bxpull`, `/tmp/bxpush`.
+No auto-poweroff while the user is iterating; rsync each stage; **destroy boxes when truly done**.
 
-## Then (either path) — the actual science
-
-1. Continue the curriculum: s2 (height) → s3 (velocity) → s4 (bounding). The driver
-   (`scripts/run_clean_curriculum.sh`) chains these with the automated gate.
-2. **Re-run the −4.4 % hop-spring energy comparison on the clean (non-spinning) base** for the rigorous
-   number (the whole point — the 2026-06-20 −4.4 % was caveated because both arms spun at different rates).
-3. Deferred: energy-on retrain, ≥3 seeds, regen-sensitivity band.
-
-## Box runbook (unchanged, validated this session)
-
-1. Provision H100, paste IP. Bootstrap: `scripts/gpu_box_setup.sh` (or the `~/bootstrap.sh` pattern) →
-   `git reset --hard origin/main` → assert `from pea.env import make_env` + `git rev-parse HEAD`.
-2. Arm the `&&` fail-safe watchdog FIRST (`nohup bash -c 'sleep <budget> && { pkill -9 -f "[p]ea-train";
-   sudo poweroff; }' &`). Confirm **passwordless sudo** (`sudo -n true`).
-3. Launch `run_clean_curriculum.sh` detached at `nice -19 ionice -c3`. The driver **auto-gates s1** on
-   `|yaw|<0.15` (hop_yaw_gate.py) and aborts the chain on fail.
-4. Babysit from the Mac (the `/tmp/babysit.sh` pattern): retry-ssh (`-o IPQoS=none`, banner stalls are
-   the flaky VPN — retry), rsync each stage as it ends, final rsync **then** poweroff (only with a
-   verified local copy). **DELETE the instance** (powered off ≠ deleted; storage may still bill).
-
-Working infra this session: `scripts/hop_yaw_gate.py` (yaw probe, exits non-zero on fail), the automated
-gate in `run_clean_curriculum.sh`, the Mac-side `/tmp/bx` (retry-ssh) + `/tmp/bxpull` (retry-rsync) +
-`/tmp/babysit.sh` helpers. The dog-running / G1-running / gravity-comp tracks remain SUSPENDED.
+Deferred: energy-objective-ON retrain + ≥3 seeds (after a clean positive). Dog-/G1-running + gravity-comp SUSPENDED.

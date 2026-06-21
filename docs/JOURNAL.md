@@ -8,6 +8,38 @@ happened, what's open/broken, and the single next step.
 
 ---
 
+## 2026-06-21 (cont. 2) — clean curriculum DONE (s1-s4, warm-started); fair spring run BRITTLE → DR-boundary root cause + centered-DR fix
+- **Did:** Relaxed the s1 gate to yaw+survival (drift is benign; `hop_yaw_gate.py --drift_gate` default off),
+  warm-start-continued the curriculum on a fresh box (`run_clean_curriculum_cont.sh`): **s2 (height, reward 113)
+  → s3 (velocity, 117) → s4 (bounding, 24)**, all rsync'd to `outputs/clean_curriculum/`. Rendered per-stage +
+  s3 command-demo videos (`streak_videos/`, `render_hop.py` gained `PEA_RENDER_CMD`/`PEA_RENDER_CAM`). Built the
+  6-joint work-loop + spring fit (`hop_workloop_6joint.py`, plot `hop_workloop_6joint_s2.png`) and the pogo fit.
+  Built + ran the **fair energy comparison** (`g1_hop_fair_{baseline,spring}.yaml` byte-identical except spring,
+  `run_hop_fair.sh`: baseline + staged ramp k40→75→**93.3**). It trained (all reward ~120) but the comparison FAILED.
+- **Tracking findings:** s3 YAW tracks bidirectionally (cmd +0.5→+0.50, −0.5→−0.45) but FORWARD translation fails
+  (cmd 0.4→0.066 m/s) — a synchronous two-footed hop resists translating + tracking weight low vs hop_height. **s4
+  (bounding) IS the forward mover** (cmd 0.5/0.7/1.0 → 0.30/0.48/0.74 m/s, straight). Forward locomotion = s4's job.
+- **Spring fit (s2 in-place work-loop):** KNEE is the spring joint — RMS τ 36, braking **−51 W** (~85% of leg total),
+  linear/pogo feasible k≈61(2-sided)/**93.3(pogo)**, θ_engage 0.701. Ankle_pitch secondary (−8.7 W, k≈34). Hips/ankle_roll
+  ≈0 net τ → no useful spring. "Element kind follows load shape" holds.
+- **THE PROBLEM (headline):** the spring policy trains to reward 122 on the box (stochastic + DR) but **falls in ~2 s at
+  EVERY local eval condition** — nominal det/stoch (0/3) AND DR det/stoch (2/10, and the survivors don't even hop, apex=nan).
+  Baseline robust everywhere (8-10/10). So no valid energy number could be extracted (gate CONFOUNDED).
+- **Root cause (the insight):** the stock G1 DR puts the NOMINAL model at the **least-damped boundary** — `dof_armature
+  ×U(1.0,1.05)` is ONE-SIDED (nominal = the minimum), `dof_frictionloss ×U(0.5,2.0)` skews high (nominal below the ×1.25
+  mean). Friction (nominal 0.6 ∈ U(0.4,1.0)) + mass are interior/fine. A DR policy is never trained at the nominal point
+  (measure zero); the energetic k=93 spring has a thin margin, so at the under-damped nominal it over-hops (~0.15 vs 0.12)
+  and topples. The baseline's wide margin coasts through.
+- **FIX (committed `d2aab0b`):** `pea/randomize.py centered_domain_randomize` — centers the damping axes (armature
+  ×U(0.95,1.05), frictionloss ×U(0.6,1.4)); opt-in via `centered_dr: true` (RunConfig + train.py). Verified nominal
+  armature mult now straddles 1.0 (interior, was the min). Both `g1_hop_fair_*` configs set `centered_dr: true`.
+- **Open/broken:** the fair energy number is NOT obtained (the spring arm is brittle under stock DR). The centered-DR
+  fix is UNTESTED for the spring (does it actually make a nominally-robust, measurable spring?). Box `…52` is UP
+  (no auto-poweroff, per user); s2 present at `~/runs/2026-06-21_g1_clean_s2_height_clean_s2`; box `…74` powered off
+  (user to DELETE). `hop_energy_compare_dr.py` (DR-rollout variant) written but uncommitted.
+- **Next:** re-run `run_hop_fair.sh` with **centered DR** (both arms; configs ready) — ideally PARALLELIZED across 2 boxes
+  (baseline on box B ‖ ramp on box A, ~1h13m) — then `hop_energy_compare.py` (deterministic nominal, now valid) → the J/hop number.
+
 ## 2026-06-21 (cont.) — clean s1 TRAINED: leg_symmetry SOLVES the spin (yaw 3.8→0.016); gate failed on DRIFT only
 - **Did:** Pre-flight-validated the clean curriculum (4 configs smoke-pass; adversarial workflow review),
   added an **automated s1 yaw gate** to the driver + the `scripts/hop_yaw_gate.py` probe (patches

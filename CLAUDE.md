@@ -139,6 +139,20 @@ it out) — so next session either RELAX the gate to yaw+survival and continue s
 or add a light anti-drift to s1 and re-elicit (`docs/NEXT_SESSION.md`). Then the −4.4 % spring-energy re-run on the
 clean base. **ACTIVE-direction infra:** `leg_symmetry` reward (`g1_hop_env.py`, body-frame foot symmetry) +
 `configs/g1_clean_s1..s4` + `scripts/run_clean_curriculum.sh` (auto-gates s1 on |yaw|<0.15).
+**UPDATE 2026-06-21 (cont. 2) — curriculum DONE (s1-s4); fair spring run BRITTLE → DR-boundary fix.** Relaxed the
+gate (drift benign), warm-start-continued s2 (r113) → s3 (r117) → s4 bounding (`run_clean_curriculum_cont.sh`); videos
+in `outputs/clean_curriculum/streak_videos/`. s3 yaw tracks both ways but forward translation is s4's job (s4 cmd
+0.5/0.7/1.0 → 0.30/0.48/0.74 m/s straight). Work-loop (`hop_workloop_6joint.py`): **knee is the spring joint** (braking
+−51 W ≈ 85% of leg; pogo k=93.3, θ_engage 0.701), ankle secondary, others ≈0. Built the FAIR comparison
+(`g1_hop_fair_{baseline,spring}.yaml` byte-identical except spring; `run_hop_fair.sh`: baseline + staged ramp
+k40→75→93.3) — but **it FAILED: the spring policy trains to r122 under DR yet falls in ~2 s at every local eval
+(nominal AND DR, det AND stoch)**, so no valid J/hop. **Root cause:** the stock G1 DR puts the NOMINAL model at the
+LEAST-DAMPED boundary (`dof_armature ×U(1.0,1.05)` one-sided → nominal=min; frictionloss skews high), so the policy
+is never trained at nominal and the energetic spring over-hops + topples there (baseline's wide margin survives).
+**Fix (`d2aab0b`): `pea/randomize.py centered_domain_randomize` + `centered_dr: true`** centers the damping axes →
+nominal interior; both fair configs set it. **NEXT: re-run `run_hop_fair.sh` with centered DR (both arms; configs
+ready), ideally parallelized across 2 boxes, GATE the spring's nominal survival after k=40, then
+`hop_energy_compare.py` → the J/hop number, then render the pair.** Box `…52` UP (s2 present); box `…74` to delete.
 
 ## Session ritual
 Project memory lives on disk, not in any single conversation. Work in short, task-scoped
