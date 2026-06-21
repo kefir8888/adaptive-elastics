@@ -1,0 +1,43 @@
+# OPTION B baseline: FORWARD two-footed hop (no spring). The in-place hop is an unstable fixed
+# point (plateaued 1/3-2/3); commanding a fixed forward speed turns it into a STABLE LIMIT CYCLE
+# (momentum + a velocity reference stabilize heading/position -> no drift-balance problem). The
+# spring's landing-braking recovery channel is present in any hopping gait, so a forward hop is a
+# valid -- and more stable -- platform for the energy comparison (and it gives a real cost-of-transport).
+# Reward package = v2's working attitude set; command_forward fixes 0.5 m/s straight ahead; no in-place
+# anchor (forward motion is intended). Warm-started from v2 (the in-place hopper learns to hop forward).
+name: g1_hop_fwd_baseline
+env_name: G1JoystickHop
+seed: 1
+domain_randomization: true
+centered_dr: true
+num_timesteps: 100000000
+command_forward:                            # patch sample_command -> always command forward (env.bind_forward_command)
+  vx_min: 0.5                               # fixed 0.5 m/s forward (vx_min==vx_max -> constant speed, matched task)
+  vx_max: 0.5
+  vy_max: 0.0                               # no lateral command (straight)
+  vyaw_max: 0.0                             # no yaw command (no turning)
+env_overrides:
+  reward_config.tracking_sigma: 0.2
+  reward_config.max_foot_height: 0.20
+  reward_config.hop_freq: 1.8               # FIXED cadence
+  reward_config.hop_height_target: 0.10     # FIXED apex
+  reward_config.hop_height_var: 0.0016
+reward_scales:
+  termination: -400.0
+  action_rate: -0.01
+  dof_acc: -2.5e-7
+  torques: -2.0e-5
+  tracking_lin_vel: 3.0                      # now rewards matching the 0.5 m/s forward command
+  tracking_ang_vel: 2.0                      # hold heading (no yaw)
+  leg_symmetry: -2.0
+  orientation: -8.0
+  ang_vel_xy: -1.0
+  feet_air_time: 1.0
+  hop_flight: 0.5
+  hop_height: 8.0
+  hop_overshoot: -20.0
+spring:
+  kind: none
+energy_reward_weight: 0.0
+energy_motor: g1
+ppo: {}
