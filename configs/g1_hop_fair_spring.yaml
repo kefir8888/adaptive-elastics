@@ -1,0 +1,37 @@
+# FAIR hop-spring energy comparison — SPRING arm (knee pogo), on the CLEAN non-spinning base.
+# Byte-identical to g1_hop_fair_baseline.yaml EXCEPT the spring block. Trained via the staged
+# stiffness ramp (scripts/run_hop_fair.sh: --spring_k 40 -> 75 -> 93.3, warm-start-chained from
+# clean s2) so the gait migrates gradually to full strength and ends TUNED to k=93.3 — the
+# one-sided pogo fit from the s2 in-place work-loop (knee, theta_engage 0.701, engage_sign +1;
+# mean braking -51 W, the recovery channel). The full-strength inject from scratch destabilizes,
+# hence the ramp (the prior campaign's validated recipe). The final k=93.3 run is the comparison arm.
+name: g1_hop_fair_spring
+env_name: G1JoystickHop
+seed: 1
+domain_randomization: true
+num_timesteps: 80000000
+env_overrides:
+  reward_config.tracking_sigma: 0.3
+  reward_config.max_foot_height: 0.22
+  reward_config.hop_freq: 1.8              # FIXED cadence (Hz) — matches the baseline arm
+  reward_config.hop_height_target: 0.12    # FIXED apex (m above standing) — matches the baseline arm
+  reward_config.hop_height_var: 0.0009     # TIGHT apex tracking — matches the baseline arm
+reward_scales:
+  termination: -100.0
+  action_rate: -0.01
+  dof_acc: -2.5e-7
+  torques: -2.0e-5
+  tracking_lin_vel: 2.0
+  tracking_ang_vel: 2.0
+  leg_symmetry: -2.0
+  hop_height: 8.0
+  hop_overshoot: -30.0                      # apex cap — matches the baseline arm
+spring:
+  kind: one_sided_linear                   # pogo: engages in flexion (landing/crouch), returns at push-off
+  joint: knee
+  theta_engage: 0.701
+  engage_sign: 1.0
+  k: 93.3                                   # staged-ramp driver overrides per stage via --spring_k
+energy_reward_weight: 0.0                   # measure electrical energy POST-HOC
+energy_motor: g1
+ppo: {}

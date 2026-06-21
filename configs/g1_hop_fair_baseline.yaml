@@ -1,0 +1,33 @@
+# FAIR hop-spring energy comparison — BASELINE (no-spring) arm, on the CLEAN non-spinning base.
+# Warm-start from clean s2 (the in-place apex-controlled hopper). FIXED cadence + apex so the
+# spring and no-spring arms perform the IDENTICAL mechanical task; energy OFF (post-hoc, measured
+# by hop_energy_compare.py). KEEPS the anti-spin (tracking_lin/ang_vel 2.0 + leg_symmetry -2.0) so
+# BOTH arms are non-spinning — the prior fair pair (g1_hop_baseline_013 / g1_hop_spring_fixed)
+# LACKED these and spun, which is precisely what caveated the 2026-06-20 -4.4% result.
+# Byte-identical to g1_hop_fair_spring.yaml except the spring block.
+name: g1_hop_fair_baseline
+env_name: G1JoystickHop
+seed: 1
+domain_randomization: true
+num_timesteps: 80000000
+env_overrides:
+  reward_config.tracking_sigma: 0.3
+  reward_config.max_foot_height: 0.22
+  reward_config.hop_freq: 1.8              # FIXED cadence (Hz) — must match the spring arm
+  reward_config.hop_height_target: 0.12    # FIXED apex (m above standing) — must match the spring arm
+  reward_config.hop_height_var: 0.0009     # TIGHT apex tracking — must match the spring arm
+reward_scales:
+  termination: -100.0
+  action_rate: -0.01
+  dof_acc: -2.5e-7
+  torques: -2.0e-5
+  tracking_lin_vel: 2.0                    # keep the anti-spin heading/position hold
+  tracking_ang_vel: 2.0
+  leg_symmetry: -2.0
+  hop_height: 8.0
+  hop_overshoot: -30.0                     # apex cap — must match the spring arm
+spring:
+  kind: none
+energy_reward_weight: 0.0
+energy_motor: g1
+ppo: {}
