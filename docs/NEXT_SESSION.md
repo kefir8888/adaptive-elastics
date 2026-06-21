@@ -17,22 +17,33 @@ Read first: `CLAUDE.md`, top of `docs/JOURNAL.md` (2026-06-21 cont. 2), and the 
 - **Box state:** `…52` is UP (no auto-poweroff; s2 at `~/runs/2026-06-21_g1_clean_s2_height_clean_s2`). Box `…74`
   powered off — **DELETE it from the immers console** if not already.
 
-## THE NEXT RUN — re-do the fair comparison with centered DR (PARALLELIZED)
-User will provide a **second box IP** to parallelize (the ramp is sequential; the baseline is independent).
+## THE NEXT RUN — fair comparison with centered DR, PARALLELIZED across 2 boxes (TURNKEY)
+DECIDED 2026-06-21: re-run NEXT session (not now) — supervised, parallelized, with an early gate
+(the centered-DR fix is UNVERIFIED for the spring; don't spend the whole ramp on faith). Scripts are
+committed: `run_hop_fair_ramp.sh`, `run_hop_fair_baseline.sh`, `hop_spring_survival.py`. The ramp is the
+~73-min long pole; the baseline (~30 min) is independent → run them on different boxes.
 
-1. On **box A (`…52`)**: `bash scripts/run_hop_fair.sh /home/ubuntu/runs/2026-06-21_g1_clean_s2_height_clean_s2`
-   — but to parallelize, run ONLY the spring ramp there (the ~73-min long pole). On **box B**: run ONLY the
-   baseline (~30 min). (Either split `run_hop_fair.sh` into two, or just launch the two `pea-train` chains by hand:
-   baseline = `g1_hop_fair_baseline.yaml --restore <s2>`; ramp = `g1_hop_fair_spring.yaml --spring_k 40/75/93.3`
-   chained.) Both arms use centered DR (in the configs). git reset + import-verify + nice-19 + no-poweroff babysitter.
-2. **GATE the spring early:** after the k=40 stage, check survival on NOMINAL deterministic (`scripts/diag` pattern /
-   the `/tmp/diag_spring.py` approach) — if the centered-DR spring is STILL brittle (falls <3 s nominal), STOP and
-   rethink (maybe shorten the ramp, lower apex, or train without warm-start). Don't spend the whole ramp on faith.
-3. When both arms finish: `uv run python scripts/hop_energy_compare.py <fair_baseline_dir> <fair_spring_k93_dir>`
-   — deterministic nominal, now VALID (apex/cadence match, J/hop no-regen+regen, ohmic share, % delta).
-   Free cross-check: also compare vs the OLD stock-DR baseline (`outputs/clean_curriculum/fair/...fair_baseline`).
-4. **Then render** the fair pair (user asked): baseline + spring in-place + side-by-side, into
-   `outputs/clean_curriculum/fair/videos/` with a README.
+0. **Box A = `…52`** (already up, bootstrapped, has s2 at `~/runs/2026-06-21_g1_clean_s2_height_clean_s2`).
+   **Box B = the second IP the user gives** — bootstrap it, then UPLOAD s2 to it (local copy exists at
+   `outputs/clean_curriculum/2026-06-21_g1_clean_s2_height_clean_s2/`, ~37 MB; `/tmp/bxpush` it to
+   `~/runs/2026-06-21_g1_clean_s2_height_clean_s2/`).
+1. **Box A — ramp** (long pole): `nohup nice -19 ionice -c3 bash scripts/run_hop_fair_ramp.sh \
+   /home/ubuntu/runs/2026-06-21_g1_clean_s2_height_clean_s2 &`. **Box B — baseline**:
+   `nohup nice -19 ionice -c3 bash scripts/run_hop_fair_baseline.sh \
+   /home/ubuntu/runs/2026-06-21_g1_clean_s2_height_clean_s2 &`. Both: git reset + import-verify first;
+   no-poweroff babysitter (boxes stay up).
+2. **GATE (the safety valve):** when box A logs `END fair_spring_k40`, rsync that run dir to the Mac and
+   `env -u PYTHONPATH uv run python scripts/hop_spring_survival.py <k40_dir>`. PASS = survives full episode +
+   hops on NOMINAL deterministic. **If it FAILS (still ~2 s), `pkill -f run_hop_fair_ramp` on box A and STOP** —
+   the centered DR didn't fix it; rethink (shorter ramp / lower apex 0.10 / no warm-start / k cap lower). If PASS,
+   let the ramp finish k75→k93.
+3. **Compare:** `env -u PYTHONPATH uv run python scripts/hop_energy_compare.py <fair_baseline_dir> <fair_spring_k93_dir>`
+   — deterministic nominal, now VALID (apex/cadence match, J/hop no-regen+regen, ohmic share, % delta). Free
+   cross-check: also vs the OLD stock-DR baseline at `outputs/clean_curriculum/fair/2026-06-21_g1_hop_fair_baseline_fair_baseline`.
+   (DR-rollout fallback if ever needed: `hop_energy_compare_dr.py`.)
+4. **Render** the fair pair (user asked): baseline + spring in-place + side-by-side (`render_hop.py`, loads the
+   spring active), into `outputs/clean_curriculum/fair/videos/` + a README.
+5. **Destroy box B** when done; leave/destroy box A per the user.
 
 ## Box runbook + safety (unchanged, validated this campaign)
 Bootstrap (`gpu_box_setup.sh` or the `~/bootstrap.sh` pattern) → `git reset --hard origin/main` → verify
