@@ -154,6 +154,11 @@ TRACKING_ANG_VEL_WEIGHT_HOP = 0.5    # gentle no-spin nudge (walk env: 0.75)
 # inherited yaw spin (every hopper trained 2026-06-20 spun ~+2-3.8 rad/s except bounding).
 # 0 by default; set negative (a penalty) in the clean-curriculum configs (stage 1+).
 LEG_SYMMETRY_WEIGHT = 0.0
+# In-place anchor: penalize horizontal DISPLACEMENT of the pelvis from its reset position.
+# A velocity penalty also punishes the natural hop sway; displacement ignores zero-mean sway
+# and catches the slow NET drift that makes the hopper wander metres and topple (2026-06-21:
+# the v2 base fixed the topple but still drifted 2-3.6 m). 0 by default; negative in configs.
+HOP_STAY_WEIGHT = 0.0
 
 
 def default_config() -> config_dict.ConfigDict:
@@ -177,6 +182,7 @@ def default_config() -> config_dict.ConfigDict:
     s.tracking_lin_vel = TRACKING_LIN_VEL_WEIGHT_HOP
     s.tracking_ang_vel = TRACKING_ANG_VEL_WEIGHT_HOP
     s.leg_symmetry = LEG_SYMMETRY_WEIGHT
+    s.hop_stay = HOP_STAY_WEIGHT
     # Register the hop terms so the env builds their metrics keys and they show up
     # in the reward breakdown. All are rewards (+); hop_rhythm is SIGNED ([-1, 1]).
     s.hop_rhythm = HOP_RHYTHM_WEIGHT
@@ -230,6 +236,9 @@ class G1JoystickHop(g1_joystick.Joystick):
         # Synchronous clock: both feet in phase -> a whole-body hop. (Walk: [0, pi].)
         state.info["phase"] = jp.array([0.0, 0.0])
         state.info["rng"] = rng2
+        # Anchor for the in-place hop_stay penalty: remember where we started (pelvis x,y).
+        # Threaded through info like phase/rng; re-stamped on every (auto-)reset.
+        state.info["xy0"] = state.data.qpos[:2]
         return state
 
     def _reward_feet_air_time(
@@ -333,6 +342,13 @@ class G1JoystickHop(g1_joystick.Joystick):
         lateral_asym = jp.abs(body[0, 1] + body[1, 1])   # mirror lateral (L=+, R=−) -> sum 0
         return fore_aft_asym + lateral_asym  # POSITIVE cost (metres of asymmetry); use a NEGATIVE scale
 
+    def _reward_hop_stay(self, data: "mjx.Data", info) -> jax.Array:
+        # In-place anchor: horizontal DISPLACEMENT (metres) of the pelvis from its reset xy
+        # (info["xy0"]). Unlike a velocity penalty, this ignores the zero-mean hop sway and
+        # directly punishes the slow NET drift that makes the hopper wander metres and topple.
+        # POSITIVE cost (metres) -> use a NEGATIVE scale. xy0 is stamped in reset, threaded via info.
+        return jp.linalg.norm(data.qpos[:2] - info["xy0"])
+
     def _get_reward(
         self,
         data: "mjx.Data",
@@ -358,6 +374,7 @@ class G1JoystickHop(g1_joystick.Joystick):
         rewards["hop_flight"] = self._reward_hop_flight(contact)
         rewards["hop_overshoot"] = self._reward_hop_overshoot(base_height)
         rewards["leg_symmetry"] = self._reward_leg_symmetry(data)
+        rewards["hop_stay"] = self._reward_hop_stay(data, info)
         return rewards
 
 
