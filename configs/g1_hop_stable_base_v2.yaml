@@ -1,0 +1,42 @@
+# STABILITY-FIRST hop baseline v2. v1 (triple attitude/termination penalties, hop drivers
+# unchanged) did NOT work: episode length stayed flat at ~740-800 over 48M steps, never
+# climbing toward 1000 — the moderate penalty bump was swamped by the >6400 hop/tracking
+# reward. v2 attacks the STRUCTURAL cause instead: the long ballistic FLIGHT phase (no control
+# authority -> drift+tilt compound -> topple). Make the hop SMALL and SNAPPY (less airtime,
+# lower apex) AND harden the attitude penalties further. A small hop is far easier to balance
+# and still has a landing-braking channel for the spring; apex can be raised later once stable.
+#   vs v1:  apex 0.12->0.10,  feet_air_time 3.0->1.0,  hop_flight 1.5->0.5,
+#           ang_vel_xy -0.5->-1.0,  orientation -5->-8,  termination -300->-400.
+# Hop BACKBONE kept (hop_height 8, rhythm 2, sync 2, push 1) so it does not collapse to standing.
+# Warm-started from clean s2. Comparison-ready: cadence FIXED 1.8 Hz, apex 0.10.
+name: g1_hop_stable_base_v2
+env_name: G1JoystickHop
+seed: 1
+domain_randomization: true
+centered_dr: true
+num_timesteps: 150000000
+env_overrides:
+  reward_config.tracking_sigma: 0.2
+  reward_config.max_foot_height: 0.20
+  reward_config.hop_freq: 1.8               # FIXED cadence (Hz)
+  reward_config.hop_height_target: 0.10     # SMALLER apex (was 0.12) — snappier, easier to balance
+  reward_config.hop_height_var: 0.0016      # sigma 0.04 m
+reward_scales:
+  termination: -400.0                       # was -300: falling must hurt even more
+  action_rate: -0.01
+  dof_acc: -2.5e-7
+  torques: -2.0e-5
+  tracking_lin_vel: 3.0                      # stay-in-place
+  tracking_ang_vel: 2.0
+  leg_symmetry: -2.0                         # anti-spin
+  orientation: -8.0                          # was -5: stay upright (default -2)
+  ang_vel_xy: -1.0                           # was -0.5: hard-damp the torso rocking (default -0.15)
+  feet_air_time: 1.0                         # was 3.0: stop rewarding excess airtime (the destabilizer)
+  hop_flight: 0.5                            # was 1.5: smaller flight incentive
+  hop_height: 8.0                            # keep the apex driver
+  hop_overshoot: -20.0                       # apex cap
+spring:
+  kind: none
+energy_reward_weight: 0.0
+energy_motor: g1
+ppo: {}
