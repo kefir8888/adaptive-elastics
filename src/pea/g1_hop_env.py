@@ -159,6 +159,12 @@ LEG_SYMMETRY_WEIGHT = 0.0
 # and catches the slow NET drift that makes the hopper wander metres and topple (2026-06-21:
 # the v2 base fixed the topple but still drifted 2-3.6 m). 0 by default; negative in configs.
 HOP_STAY_WEIGHT = 0.0
+# DEAD-ZONE radius (m): no anchor penalty within this radius of the reset xy. v3 used a plain
+# (no-deadzone) -5.0 anchor -> it over-constrained, suppressing the small horizontal CoM/foot
+# shifts a hopper needs to CATCH its balance (survival dropped 2/3 -> 1/3, late gentle falls at
+# low drift). A deadzone gives free balance corrections inside the circle while still pinning the
+# slow NET drift beyond it. ~0.3 m comfortably covers a hop's natural sway (~0.1-0.2 m).
+HOP_STAY_DEADZONE = 0.3
 
 
 def default_config() -> config_dict.ConfigDict:
@@ -347,7 +353,9 @@ class G1JoystickHop(g1_joystick.Joystick):
         # (info["xy0"]). Unlike a velocity penalty, this ignores the zero-mean hop sway and
         # directly punishes the slow NET drift that makes the hopper wander metres and topple.
         # POSITIVE cost (metres) -> use a NEGATIVE scale. xy0 is stamped in reset, threaded via info.
-        return jp.linalg.norm(data.qpos[:2] - info["xy0"])
+        # Dead-zone: free within HOP_STAY_DEADZONE of the start (balance corrections), penalty beyond.
+        dist = jp.linalg.norm(data.qpos[:2] - info["xy0"])
+        return jp.maximum(dist - HOP_STAY_DEADZONE, 0.0)
 
     def _get_reward(
         self,
