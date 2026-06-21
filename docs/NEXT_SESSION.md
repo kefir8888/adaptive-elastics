@@ -13,6 +13,11 @@ steps vs the baseline, and the baseline barely translated. Read first: top of `d
 - IN-PLACE jump spring = NEGATIVE (collapses the hop, 0/3) — do NOT revisit unless adding a true clutch.
 - Infra ready: `g1_bound_spring.yaml`, `run_bound_spring.sh`, `cadence_sweep.py`, command-aware
   `hop_failure_diag`/`hop_energy_compare`/`hop_spring_prep`, `hop_stay` anchor, `ElectricalRewardWrapper` (env.py).
+- **A1 ALREADY DONE (local prep, commit 8460e42):** `energy_reward_weight` calibrated to **-1.0e-3** (energy ~20%
+  of s4 positive reward 2026/ep at ~479 W). Both parity configs written + smoke-passed: **`g1_bound_energy_baseline.yaml`**
+  (no spring) and **`g1_bound_energy_spring.yaml`** (knee pogo k=127.7), byte-identical except the spring, free cadence,
+  energy ON, warm from s4, 120 M steps each. => fresh agent SKIPS A1; go straight to: provision box -> upload s4 ->
+  train baseline (`g1_bound_energy_baseline`) -> A3 gate -> train spring (`g1_bound_energy_spring`) -> C1 compare.
 
 ## Design principles (fix all 3 confounds)
 - **Energy IN the objective** (both arms): set `energy_reward_weight` so the gait optimizes electrical energy and
