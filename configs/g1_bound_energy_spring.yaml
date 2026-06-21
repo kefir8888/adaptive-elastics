@@ -1,0 +1,34 @@
+# ENERGY-OBJECTIVE running SPRING arm (knee pogo). BYTE-IDENTICAL to g1_bound_energy_baseline.yaml
+# except the spring block. energy_reward_weight ON so the gait learns to EXPLOIT the spring (route
+# braking recovery into push-off, pick its resonant-efficient cadence). FREE cadence. Warm-start from
+# s4, SAME steps as the baseline (parity). Staged k ramp optional if full strength destabilizes.
+# Decisive test: does CoT (no-regen, matched achieved speed, both >=2/3 stable) drop vs the parity baseline?
+name: g1_bound_energy_spring
+env_name: G1JoystickBound
+impl: jax
+seed: 1
+num_timesteps: 120000000
+domain_randomization: true
+spring:
+  kind: one_sided_linear                   # knee pogo: engages in stance flexion, returns at push-off
+  joint: knee
+  theta_engage: 0.734                       # re-fit from the s4 bounding work-loop
+  engage_sign: 1.0
+  k: 127.7                                  # ramp driver can override per stage if needed for stability
+ppo: {}
+reward_scales:
+  termination: -50.0
+  action_rate: -0.01
+  dof_acc: -2.5e-07
+  torques: -2.0e-05
+  feet_clearance: -1.0
+env_overrides:
+  reward_config.tracking_sigma: 0.4
+  reward_config.max_foot_height: 0.2
+energy_reward_weight: -1.0e-3
+energy_motor: g1
+command_forward:
+  vx_min: 0.4
+  vx_max: 1.0
+  vy_max: 0.0
+  vyaw_max: 0.0

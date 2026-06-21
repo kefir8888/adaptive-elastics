@@ -1,0 +1,30 @@
+# ENERGY-OBJECTIVE running BASELINE (no spring). Parity arm for the decisive spring CoT test.
+# energy_reward_weight ON (-1.0e-3, calibrated: energy ~20% of s4 positive reward 2026/ep at ~479 W)
+# so the gait OPTIMIZES electrical energy. FREE cadence (no hop_freq -> bound env samples 1.6-2.6).
+# BYTE-IDENTICAL to g1_bound_energy_spring.yaml except the spring block. Warm-start from s4; train the
+# SAME steps as the spring arm (parity -> removes the +100M training confound from the 2026-06-22 run).
+name: g1_bound_energy_baseline
+env_name: G1JoystickBound
+impl: jax
+seed: 1
+num_timesteps: 120000000
+domain_randomization: true
+spring:
+  kind: none
+ppo: {}
+reward_scales:
+  termination: -50.0
+  action_rate: -0.01
+  dof_acc: -2.5e-07
+  torques: -2.0e-05
+  feet_clearance: -1.0
+env_overrides:
+  reward_config.tracking_sigma: 0.4
+  reward_config.max_foot_height: 0.2
+energy_reward_weight: -1.0e-3
+energy_motor: g1
+command_forward:
+  vx_min: 0.4
+  vx_max: 1.0
+  vy_max: 0.0
+  vyaw_max: 0.0
