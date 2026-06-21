@@ -20,6 +20,9 @@ from pea import config as cfg_lib, energy, experiment, policy as policy_lib
 from pea.env import make_env
 
 STEPS = int(sys.argv[3]) if len(sys.argv) > 3 else 800
+# Optional command "vx,vy,vyaw" (default in-place 0,0,0). For a FORWARD gait pass "0.5,0,0":
+# the comparison then also reports forward speed + energy-per-metre (J/m, what CoT scales with).
+CMD = tuple(float(x) for x in sys.argv[4].split(",")) if len(sys.argv) > 4 else (0.0, 0.0, 0.0)
 TRANSIENT_S = 2.0
 
 
@@ -35,7 +38,7 @@ def measure(run_dir: str):
     dt = float(env.dt)
     qpos, qvel, qfrc = [], [], []
     for seed in (0, 1, 2):
-        tr = experiment.rollout(env, pol, (0.0, 0.0, 0.0), STEPS, seed=seed)
+        tr = experiment.rollout(env, pol, CMD, STEPS, seed=seed)
         if tr["n"] > int(TRANSIENT_S / dt) + 20:
             s = int(TRANSIENT_S / dt)
             qpos.append(tr["qpos"][s:]); qvel.append(tr["qvel"][s:]); qfrc.append(tr["qfrc"][s:])
@@ -70,10 +73,15 @@ def measure(run_dir: str):
     # apex-normalized energy (J per m of apex): divides out a residual apex gap that survives the
     # fairness tolerance, so a small height difference cannot masquerade as an energy delta.
     e_nr_per_m = e_nr / apex if (apex == apex and apex > 1e-3) else float("nan")
+    # forward gait: mean base forward speed (m/s) and electrical energy per metre travelled
+    # (J/m = mean power / speed); the % reduction in J/m is the cost-of-transport headline.
+    vx_mean = float(np.mean(qvel[:, 0]))
+    e_per_metre = (E_noregen / dur) / vx_mean if abs(vx_mean) > 1e-3 else float("nan")
     return dict(E_noregen_per_hop=e_nr, E_regen_per_hop=E_regen / n_hops,
                 ohmic_share=E_ohmic / max(E_noregen, 1e-9), apex=apex, apex_std=apex_std,
                 n_pos_peaks=int(len(pos_apex)), E_noregen_per_m=e_nr_per_m,
-                cadence=cadence, n_hops=n_hops, mean_power_noregen=E_noregen / dur, dur=dur)
+                cadence=cadence, n_hops=n_hops, mean_power_noregen=E_noregen / dur, dur=dur,
+                vx_mean=vx_mean, E_per_metre=e_per_metre)
 
 
 base = measure(sys.argv[1]); spr = measure(sys.argv[2])
@@ -90,6 +98,9 @@ row("E/hop no-regen (J)", base["E_noregen_per_hop"], spr["E_noregen_per_hop"])
 row("E/hop regen (J)", base["E_regen_per_hop"], spr["E_regen_per_hop"])
 row("E/hop per m apex (J/m)", base["E_noregen_per_m"], spr["E_noregen_per_m"])
 row("mean power no-regen (W)", base["mean_power_noregen"], spr["mean_power_noregen"])
+if abs(CMD[0]) > 1e-3:  # FORWARD gait: report speed + the cost-of-transport headline (J/m)
+    row("fwd speed (m/s)", base["vx_mean"], spr["vx_mean"], pct=False)
+    row("energy per metre (J/m)", base["E_per_metre"], spr["E_per_metre"])
 print(f"\nohmic share: baseline {base['ohmic_share']*100:.1f}%  spring {spr['ohmic_share']*100:.1f}%")
 print(f"positive-apex peaks: baseline {base['n_pos_peaks']}  spring {spr['n_pos_peaks']}")
 
