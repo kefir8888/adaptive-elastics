@@ -58,3 +58,23 @@ for j in ("hip_pitch", "knee", "ankle_pitch"):
     if l in series and r in series:
         print(f"    {j:12s} corr = {phase(series[l], series[r]):+.2f}   "
               f"L range {series[l].max()-series[l].min():5.1f}deg  R range {series[r].max()-series[r].min():5.1f}deg")
+
+
+# --- STAGE-1 GATE VERDICT (acceptance criteria for "is it actually running?") ---
+def _rng(name):
+    return (series[name].max() - series[name].min()) if name in series else float("nan")
+
+knee_corr = (phase(series["left_knee"], series["right_knee"])
+             if ("left_knee" in series and "right_knee" in series) else float("nan"))
+hip_gap = abs(_rng("left_hip_pitch") - _rng("right_hip_pitch"))
+vx = float(np.mean(qvel[:, 0]))
+# knee peak/RMS angular velocity (rad/s) vs the ~20 rad/s actuator ceiling (NR-7: knee is SPEED-limited)
+knee_dof = [v["dof_adr"] for v in joints_by_substring(mj, "knee").values()]
+knee_w = np.abs(qvel[:, knee_dof]) if knee_dof else np.zeros((max(n, 1), 1))
+print("\n  GATE VERDICT (Stage 1 — a real run must PASS the first four):")
+print(f"    knee antiphase : corr {knee_corr:+.2f}  -> {'PASS (alternating)' if knee_corr < -0.2 else 'FAIL (in-phase = jump)'}")
+print(f"    hip symmetry   : swing gap {hip_gap:4.1f} deg -> {'PASS' if hip_gap < 10 else 'FAIL (asymmetric, a leg under-driven)'}")
+print(f"    forward speed  : vx {vx:+.2f} m/s -> {'PASS' if abs(vx) > 0.4 else 'FAIL (<0.4, not matched-speed)'}  (sign must match cmd)")
+print(f"    survival       : {'PASS' if n >= STEPS else 'FAIL (fell)'}")
+print(f"    knee speed DIAG: peak {float(knee_w.max()):4.1f} rad/s  RMS {float(np.sqrt((knee_w**2).mean())):4.1f}  "
+      f"(NR-7 actuator ceiling ~20 rad/s; report headroom, do NOT gate)")
