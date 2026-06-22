@@ -44,6 +44,20 @@ immers console. Never let this happen again — follow ALL of these for any box-
 6. **Use portable tooling and test the recovery path.** macOS has **no `timeout`** command (use `gtimeout` or
    ssh's own `-o ConnectTimeout`); a broken recovery probe silently masks the box's true state. The immers VPN exit
    is flaky (SSH banner/MTU stalls) — always use `-o IPQoS=none` and log in as **`ubuntu`** (not `root`).
+7. **The agent must NEVER end a turn while a box bills unless THREE safeguards are simultaneously armed**
+   (2026-06-22 — a VS Code permission prompt **froze the whole agent loop all night** while a box billed,
+   trained nothing; see `docs/incident_2026-06-22_overnight_billing.md`):
+   (a) **bypass-permissions mode verified LIVE in the session** — a `settings.local.json` edit is read only at
+   session start, so it does NOT change a running session; toggle it (Shift+Tab) or restart, then test that a
+   previously-prompting command runs with no prompt;
+   (b) **an agent watchdog** (`ScheduleWakeup` every ~240 s) that each tick re-checks reachable + `pea-train` alive +
+   `metrics.jsonl` growing, and escalates loudly on a stall — **never fire-and-forget**; one successful SSH probe is
+   NOT a durable link;
+   (c) a **box-side self-destruct** armed before training (`scripts/box_safety_arm.sh`: hard wall-clock timer +
+   idle dead-man's switch) — the only net that does not depend on the agent being alive/reachable/unblocked.
+   **Caveat:** `poweroff` may not stop immers billing (the VM stays allocated; "DELETE, not stop"). So an unattended
+   run also requires **either an immers API/CLI destroy token** (top action item — converts an uncancellable bill into
+   a one-command kill) **or a human watching the console**.
 
 ## Headline finding: gearing is the crux
 

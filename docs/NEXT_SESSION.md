@@ -1,60 +1,54 @@
-# NEXT SESSION — energy-objective running-spring series (updated 2026-06-22)
+# NEXT SESSION — PIVOT to a real alternating-leg RUN on G1JoystickRun (updated 2026-06-22)
 
-**Goal:** a CLEAN, defensible answer to *"does a parallel knee spring reduce the electrical cost-of-transport
-(CoT) of G1 running?"* Tonight's bounding runs gave a PROMISING but confounded signal (full-strength spring made
-the bound RUN — vx 0.31-0.82 vs baseline ~0.1 — at comparable E/hop → CoT several-fold lower). The confounds to
-fix: (1) energy was NOT in the objective, (2) cadence was effectively fixed, (3) the spring arm trained ~+100 M
-steps vs the baseline, and the baseline barely translated. Read first: top of `docs/JOURNAL.md` (2026-06-22),
-`outputs/clean_curriculum/fair_centered/running_spring_results.md`, and the README "GPU-box safety".
+## Why the pivot (read first)
+The energy-objective study was being run on **`G1JoystickBound`**, but that env is built on the *hop* env
+and carries synchronous-jump terms (`hop_push`/`hop_flight`/`hop_height`) that **overpower its anti-phase
+clock** — so the trained gait is a **two-footed JUMP, not running**: knee L/R correlation **+0.69** (in-phase),
+left hip swings **47°** vs right **76°** (left leg under-driven). User confirmed from video: "it's jumping,
+the left leg never gets forward." Diagnosis tool: `scripts/gait_check.py`.
 
-## Where things stand
-- Box DESTROYED. Local warm-start: `outputs/clean_curriculum/2026-06-21_g1_clean_s4_bound_clean_s4` (s4 bound, 37 MB).
-- Spring fit (s4 bound work-loop): knee one_sided_linear, theta_engage 0.734, k=127.7; knee braking -59.6 W.
-- IN-PLACE jump spring = NEGATIVE (collapses the hop, 0/3) — do NOT revisit unless adding a true clutch.
-- Infra ready: `g1_bound_spring.yaml`, `run_bound_spring.sh`, `cadence_sweep.py`, command-aware
-  `hop_failure_diag`/`hop_energy_compare`/`hop_spring_prep`, `hop_stay` anchor, `ElectricalRewardWrapper` (env.py).
-- **A1 ALREADY DONE (local prep, commit 8460e42):** `energy_reward_weight` calibrated to **-1.0e-3** (energy ~20%
-  of s4 positive reward 2026/ep at ~479 W). Both parity configs written + smoke-passed: **`g1_bound_energy_baseline.yaml`**
-  (no spring) and **`g1_bound_energy_spring.yaml`** (knee pogo k=127.7), byte-identical except the spring, free cadence,
-  energy ON, warm from s4, 120 M steps each. => fresh agent SKIPS A1; go straight to: provision box -> upload s4 ->
-  train baseline (`g1_bound_energy_baseline`) -> A3 gate -> train spring (`g1_bound_energy_spring`) -> C1 compare.
+**Fix = use the right env, not imitation.** `G1JoystickRun` ([src/pea/g1_run_env.py](../src/pea/g1_run_env.py))
+is built on the *walk* env: anti-phase gait clock, **no synchronous-hop terms**, + un-capped air-time, faster
+clock, a velocity-gated flight bonus. It alternates legs by construction. Imitation (LocoMuJoCo/AMP — data is
+public: `openhe/g1-retargeted-motions`, `robfiras/loco-mujoco` ships AMP+DeepMimic+datasets in JAX) is the
+ESCALATION only if the reward-shaped runner still looks unclean.
 
-## Design principles (fix all 3 confounds)
-- **Energy IN the objective** (both arms): set `energy_reward_weight` so the gait optimizes electrical energy and
-  EXPLOITS the spring. CALIBRATE it first (energy term ≈ 15-25 % of total reward at the baseline operating point).
-- **Parity:** baseline & spring byte-identical except the spring block; SAME warm-start (s4), SAME steps, SAME
-  energy weight. Kills the +100 M confound.
-- **Free cadence** (bound env samples 1.6-2.6; do NOT set `hop_freq`): each arm finds its resonant-efficient cadence.
-- **Compare CoT at a MATCHED ACHIEVED forward speed**, both arms ≥2/3 stable (or DR-averaged). Pick the target
-  speed = whatever the baseline reliably achieves after A2.
-- **Report no-regen AND regen** (~24 % sensitivity) + ohmic-vs-mechanical breakdown (% of braking ceiling recovered).
+## STAGE 1 — elicit the runner (READY, smoke-passed)
+Config: **[configs/g1_run_s1.yaml](../configs/g1_run_s1.yaml)** — `G1JoystickRun`, forward 0.5–1.2 m/s,
+`centered_dr: true`, **energy OFF, no spring** (clean gait first), 150 M steps, from scratch. Smoke-passed
+locally (policy saved). Launch on a fresh box:
+```
+cd ~/adaptive-elastics && export PATH=$HOME/.local/bin:$PATH && nohup nice -n 19 ionice -c3 \
+  uv run pea-train --config configs/g1_run_s1.yaml --output_dir ~/runs --suffix s1 \
+  > ~/run_s1.log 2>&1 < /dev/null & echo $!
+```
+**GATE (the test of "is it actually running"):** pull the run, then
+`env -u PYTHONPATH uv run python scripts/gait_check.py <run> 0.8,0,0 1 600` — require **knee L/R correlation
+NEGATIVE (antiphase)** and **symmetric L/R hip ranges** (vs the bound run's +0.69 / 47°-vs-76°), plus forward
+speed ≈ command and nominal survival (`scripts/hop_failure_diag.py`). Render: `scripts/render_hop.py` with
+`PEA_RENDER_CMD=0.8,0,0`.
 
-## Phases + ~time (core fits one ≤4 h GPU session)
-| phase | step | where | ~time |
-|---|---|---|---|
-| 0  | provision box, bootstrap (`gpu_box_setup.sh`), upload s4 | box | 15 min |
-| A1 | calibrate `energy_reward_weight` (energy ≈ 15-25 % of reward) | local | 20 min |
-| A2 | train energy-objective BASELINE (no spring, free cadence, target speed, warm s4) | box | ~60 min |
-| A3 | gate: runs stably at target speed (≥2/3); baseline CoT + cadence | local | 15 min |
-| B1 | train SPRING arm (parity recipe + knee pogo; staged k if needed) | box | ~70 min |
-| B2 | gate: survival; spring CoT + cadence shift | local | 15 min |
-| C1 | compare CoT at matched speed (no-regen+regen, mechanical breakdown, % braking recovered) | local | 20 min |
-| C2 | render baseline‖spring + write-up | local | 25 min |
-| —  | rsync + wrap + DESTROY box | — | 20 min |
-Core ≈ 3.5-4 h (GPU ~2.2 h = the two training runs).
+## STAGE 2 — refit the knee spring from the RUN gait
+The bound-gait pogo (k=127.7, θ_engage 0.734) will NOT transfer to a running gait. Re-fit from stage-1's
+knee work-loop (`scripts/hop_spring_prep.py` / work-loop tooling) → new k, θ_engage.
 
-## Pre-registered decision
-Spring WINS iff CoT (no-regen, matched achieved speed, both ≥2/3 stable) drops vs the PARITY baseline. Report the
-%, regen sensitivity, the cadence each arm chose, and the realized braking-recovery fraction.
+## STAGE 3 — parity baseline + spring → CoT
+Two byte-identical `G1JoystickRun` configs except the spring (energy_reward_weight **−1e-4** — the
+running-dominant weight; −1e-3 suppressed forward speed), `centered_dr: true`, warm from stage-1.
+Compare CoT at matched achieved speed (`scripts/hop_energy_compare.py <base> <spring> 800 0.8,0,0`):
+report J/m no-regen + regen, ohmic-vs-mechanical, both arms ≥2/3 survival.
 
-## Contingencies / Session 2 (only if core is positive)
-- Baseline won't translate/stabilize → lower target speed or rebalance reward, re-run (+~60 min).
-- Spring still over-hops/destabilizes even with energy objective → the no-clutch limitation (a real finding);
-  then test a TRUE CLUTCH (engage in stance only) or sweep lower k.
-- Stiffness sweep k∈{60,90,127,160} to co-optimize (+~2.5 h); ≥3 seeds for significance.
+## Caveats / known risks
+- A true FLIGHT phase on G1JoystickRun was historically hard (the suspended running track over-corrected to
+  standing). We do NOT require flight — an alternating jog at 0.5–1.2 m/s satisfies "running" and trains more
+  readily. Push speed only after a stable alternating gait exists.
+- If stage-1 still shows asymmetry, add a left/right symmetry reward (a `leg_symmetry`-style term exists in
+  `g1_hop_env.py`, body-frame foot symmetry — port it).
 
-## Box runbook + safety (unchanged)
-Bootstrap → `git reset --hard origin/main` → verify `from pea.env import make_env` + HEAD. Launch detached at
-`nice -19 ionice -c3`. Retry-ssh (`-o IPQoS=none`). Mac helpers `/tmp/bx`, `/tmp/bxpull`, `/tmp/bxpush` (repoint IP).
-Pre-spend gate before launching. rsync each run; DESTROY the box when done (≤4 h GPU). nc -z probes can mislead — use
-direct ssh to test reachability.
+## Box / infra (unchanged, hard-won today)
+- USER provisions the immers box + pastes IP; `scripts/box.py` drives it (status/launch/pull/watch); arm
+  `scripts/box_safety_arm.sh` BUT note the idle dead-man proved UNRELIABLE today (box idled ~2 h, never fired)
+  — **console-DELETE is the only proven billing stop.** Top action item: obtain an immers API destroy token.
+- Watchdog must tolerate long VPN outages (training is detached/nohup; 25-min unreachable was just VPN).
+- Incident post-mortem: `docs/incident_2026-06-22_overnight_billing.md`. All bound-run data + videos are local
+  in `outputs/clean_curriculum/fair_centered/`.

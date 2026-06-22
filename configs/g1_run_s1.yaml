@@ -1,0 +1,30 @@
+# ELICIT a genuine ALTERNATING-leg run on G1JoystickRun (walk-derived: anti-phase gait clock,
+# NO synchronous-hop terms -> legs alternate by construction). This replaces the BOUND env,
+# which inherited hop_push/hop_flight/hop_height and degenerated to a TWO-FOOTED JUMP with a
+# stuck left leg (2026-06-22: knee L/R corr +0.69, left hip 47deg vs right 76deg).
+#
+# Stage 1 = get a stable forward runner (alternating, surviving at nominal). Energy OFF and NO
+# spring here so the gait is clean and unconstrained. AFTER this trains to a real run, refit the
+# knee pogo from THIS gait's work-loop, then run the parity baseline+spring with energy -1e-4.
+name: g1_run_s1
+env_name: G1JoystickRun
+impl: jax
+seed: 1
+num_timesteps: 150000000
+domain_randomization: true
+centered_dr: true          # nominal-centered DR so the policy is valid at the deterministic eval point
+spring:
+  kind: none
+ppo: {}
+reward_scales:             # merged onto the run-env defaults (tracking/feet_phase/flight kept)
+  action_rate: -0.01       # smoothness; suppress control chatter
+  dof_acc: -2.5e-07
+  torques: -2.0e-05
+env_overrides: {}
+energy_reward_weight: 0.0  # OFF for clean elicitation; add -1e-4 only after we have a real runner
+energy_motor: g1
+command_forward:           # forward jog: alternating gait at a moderate, trainable speed
+  vx_min: 0.5
+  vx_max: 1.2
+  vy_max: 0.0
+  vyaw_max: 0.0

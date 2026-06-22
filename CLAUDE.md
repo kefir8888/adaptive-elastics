@@ -171,6 +171,25 @@ spring), compare CoT at a matched ACHIEVED speed, both ≥2/3. Results + plan: `
 running_spring_results.md`. New infra: `hop_stay` anchor (`g1_hop_env.py`), command-aware `hop_failure_diag`/
 `hop_energy_compare`/`hop_spring_prep`, `cadence_sweep.py`, `g1_bound_spring.yaml`+`run_bound_spring.sh`. Box DESTROYED
 (s4 warm-start + configs/results saved local); provision fresh tomorrow, upload s4, run the energy-objective bound spring.
+**UPDATE 2026-06-22 (cont.) — the energy-objective bound spring is ABANDONED: the bound env trains a JUMP, not running.**
+Ran it (run1 `centered_dr` FALSE → spring 0/3 falls at nominal, comparison invalid; run2 energy −1e-3 → KILLED, the
+weight (~38% of reward) suppressed forward speed to 0.09 m/s; run3 energy **−1e-4** → trained but it's a two-footed
+JUMP). `scripts/gait_check.py` confirmed: knee L/R corr **+0.69** (in-phase, not antiphase), left hip 47° vs right 76°
+(stuck left leg). Root cause: **`G1JoystickBound` is built on the HOP env**, and `hop_push`/`hop_flight`/`hop_height`
+overpower its anti-phase clock → synchronous jump. **PIVOT (ACTIVE): train running on `G1JoystickRun`** (built on the
+WALK env: anti-phase clock, NO hop terms → legs alternate by construction). Stage-1 runner config
+`configs/g1_run_s1.yaml` is smoke-passed (fwd 0.5–1.2, `centered_dr: true`, energy off, no spring, 150 M from scratch);
+gate it with `gait_check.py` (antiphase knees + symmetric hips). Then refit the knee spring from the RUN work-loop
+(bound k=127.7 won't transfer) and run the parity baseline+spring at energy **−1e-4**. **Imitation (LocoMuJoCo/AMP —
+public G1-retargeted data + JAX AMP/DeepMimic) is the ESCALATION** only if reward-shaped running isn't clean. Plan:
+`docs/NEXT_SESSION.md`. **Lessons:** `centered_dr: true` is mandatory (stock G1 DR puts nominal at the under-damped
+boundary → energetic gaits fall at nominal); energy weight must stay a SECONDARY bias (~4%, −1e-4) or it kills running.
+New infra: `scripts/box.py` (SSH box driver), `gait_check.py`, `box_safety_arm.sh`, `run_energy_pair.sh`.
+**GPU-box safety (incident 2026-06-22, `docs/incident_2026-06-22_overnight_billing.md`):** a VS Code permission prompt
+FROZE the agent loop all night while a box billed for ZERO training; a `settings.local.json` edit does NOT change a
+running session (toggle live mode). The box-side idle dead-man `poweroff` is UNRELIABLE (never fired, box idled ~2 h) —
+**console-DELETE is the only proven billing stop; get an immers API destroy token.** Never fire-and-forget unattended
+box work; watchdog must tolerate long VPN outages (detached training survives them).
 
 ## Session ritual
 Project memory lives on disk, not in any single conversation. Work in short, task-scoped

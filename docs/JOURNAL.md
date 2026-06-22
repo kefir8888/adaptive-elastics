@@ -8,6 +8,54 @@ happened, what's open/broken, and the single next step.
 
 ---
 
+## 2026-06-22 (cont. 2) — bound env trains a JUMP, not running; PIVOT to G1JoystickRun; runner prepped
+- **Did:** Re-ran the energy-objective bounding spring on a fresh box (after the overnight incident). Three runs:
+  run1 (centered_dr=FALSE, energy −1e-3) → spring **0/3 falls at nominal**, baseline 3/3 → comparison invalid.
+  Diagnosed: stock DR puts nominal at the under-damped boundary; fix = `centered_dr: true`. run2 (centered_dr=true,
+  energy −1e-3) → KILLED: the −1e-3 energy weight (~38% of reward) **suppressed forward speed** (baseline ran
+  0.09 m/s). run3 (energy **−1e-4**, ~4%) → trained, but user spotted from the video it's a **two-footed JUMP,
+  not running**. Built `scripts/gait_check.py`; confirmed: knee L/R correlation **+0.69** (in-phase, not antiphase),
+  left hip swings **47°** vs right **76°** (left leg under-driven). Root cause: `G1JoystickBound` is built on the
+  HOP env and its `hop_push`/`hop_flight`/`hop_height` terms overpower the anti-phase clock → jump.
+- **Decided:** (1) **PIVOT off the bound env to `G1JoystickRun`** (walk-derived, anti-phase clock, NO
+  synchronous-hop terms → legs alternate by construction) — the right vehicle for alternating running.
+  (2) **Imitation (LocoMuJoCo/AMP) is the ESCALATION, not the first move** — reference data IS public
+  (`openhe/g1-retargeted-motions`; `robfiras/loco-mujoco` ships AMP+DeepMimic+22k retargeted datasets in JAX),
+  but reward-shaped G1JoystickRun should give alternation without that infra. (3) energy weight **−1e-4** for
+  running (−1e-3 kills forward speed). (4) `centered_dr: true` mandatory. (5) The box-side idle dead-man is
+  **UNRELIABLE** (never fired; box idled ~2 h) → **console-DELETE is the only proven billing stop**.
+- **Result:** Prepared + **smoke-passed** `configs/g1_run_s1.yaml` (G1JoystickRun, fwd 0.5–1.2, centered_dr,
+  energy off, no spring, 150 M from scratch). New infra: `scripts/box.py` (SSH driver), `scripts/gait_check.py`,
+  `scripts/box_safety_arm.sh`, `scripts/run_energy_pair.sh`, `docs/incident_2026-06-22_overnight_billing.md`.
+  All bound-run data + videos local in `outputs/clean_curriculum/fair_centered/`. Box DELETED.
+- **Open / broken:** No valid running CoT yet (bound = jump). G1JoystickRun flight phase historically hard
+  (target an alternating jog first). New infra files UNCOMMITTED. No immers API destroy token (action item).
+- **Next:** Provision a fresh box → train `g1_run_s1` (~25 min) → gate with `gait_check.py` (antiphase knees +
+  symmetric hips + fwd speed + survival) → confirm a REAL alternating runner before any spring work.
+
+## 2026-06-22 (cont.) — OVERNIGHT IDLE-BILLING INCIDENT + recovery; energy-objective BASELINE now LIVE
+- **Incident:** the energy-objective run was set up on a fresh immers H100, but the box **billed all night
+  and trained nothing.** Root causes (ranked): (1) PRIMARY — a VS Code permission **prompt froze the whole
+  agent loop** overnight (proof: background-task failure notifications only arrived when the user dismissed
+  the prompt next morning); a mid-session `settings.local.json` bypass edit does NOT change a running
+  session. (2) SECONDARY — the box went **unreachable** (ping 100% loss, port 22 timeout) seconds after the
+  ONE successful SSH probe (flaky VPN). (3) ENABLING — **no immers API destroy**, SSH-only control, so an
+  unreachable box could not be stopped. Full post-mortem: `docs/incident_2026-06-22_overnight_billing.md`.
+- **Conclusions / safeguards added:** never end a turn while a box bills unless THREE nets are armed at once
+  — (a) bypass mode verified LIVE, (b) a watchdog (re-checks reachable + `pea-train` alive + metrics growing),
+  (c) a box-side self-destruct (`scripts/box_safety_arm.sh`: hard 6 h timer + idle dead-man). Caveat: `poweroff`
+  may not stop immers billing → console DELETE is the only sure stop; **get an immers API destroy token (top
+  action item).** README "GPU-box safety" gained rule 7; memory `no-idle-billing-while-blocked` updated.
+- **Recovery (this session):** user restarted the box; I polled until SSH-reachable, then ran the HARDENED
+  launch: armed `box_safety_arm.sh` (6 h hard + 30 min idle, sudo OK) → bootstrap (jax gpu confirmed) →
+  uploaded s4 → `git reset` + import-verify (HEAD f1c2be9) → launched **A2 energy BASELINE** detached
+  (`g1_bound_energy_baseline`, warm s4, 120 M, PID 2532, run dir `2026-06-22_g1_bound_energy_baseline_energy_baseline`)
+  at `nice -19 ionice -c3` → armed a background training watchdog (re-invokes only on done/stall).
+- **Open/next:** baseline training (~45–60 min). Then A3 gate → B1 spring (`g1_bound_energy_spring`, parity)
+  → B2 gate → C1 CoT compare at matched speed → C2 render → **DELETE box**. Full live-state handoff +
+  re-attach commands in `docs/NEXT_SESSION.md` (background monitors do NOT survive a new session — re-probe
+  + re-arm). Box `195.209.215.115` UP + billing; bypass mode must stay LIVE; keep the console handy as the kill.
+
 ## 2026-06-22 — in-place spring = NEGATIVE; PIVOT to running; full-strength bound spring shows PROMISING CoT win (confounded)
 - **Did (long autonomous session):** Re-ran the fair in-place hop spring with centered DR → **gate FAILED**
   (spring over-hops apex 0.14 vs 0.10, falls in ~5 s, 0/3 nominal). Diagnosed the real cause: **the base hop
